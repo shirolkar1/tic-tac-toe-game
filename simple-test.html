@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Tic Tac Toe Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            text-align: center;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            max-width: 300px;
+            margin: 20px auto;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #333;
+            background: white;
+            font-size: 2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cell:hover {
+            background: #f0f0f0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+        }
+        #status {
+            font-size: 1.2rem;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Tic Tac Toe Test</h1>
+    <div id="status">Player X's turn</div>
+    
+    <div class="board" id="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
+    
+    <button onclick="resetGame()">Reset Game</button>
+    <button onclick="testCreateRoom()">Test Create Room</button>
+    
+    <div id="output"></div>
+
+    <script>
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'X';
+        let gameOver = false;
+        
+        function updateBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                cell.textContent = board[index];
+            });
+        }
+        
+        function checkWinner() {
+            const winPatterns = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                [0, 4, 8], [2, 4, 6] // diagonals
+            ];
+            
+            for (let pattern of winPatterns) {
+                const [a, b, c] = pattern;
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    return board[a];
+                }
+            }
+            return null;
+        }
+        
+        function makeMove(index) {
+            if (board[index] !== '' || gameOver) return false;
+            
+            board[index] = currentPlayer;
+            updateBoard();
+            
+            const winner = checkWinner();
+            if (winner) {
+                document.getElementById('status').textContent = `Player ${winner} wins!`;
+                gameOver = true;
+            } else if (board.every(cell => cell !== '')) {
+                document.getElementById('status').textContent = "It's a draw!";
+                gameOver = true;
+            } else {
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                document.getElementById('status').textContent = `Player ${currentPlayer}'s turn`;
+            }
+            
+            return true;
+        }
+        
+        function resetGame() {
+            board = ['', '', '', '', '', '', '', '', ''];
+            currentPlayer = 'X';
+            gameOver = false;
+            updateBoard();
+            document.getElementById('status').textContent = "Player X's turn";
+        }
+        
+        function testCreateRoom() {
+            const roomCode = Math.random().toString(36).substr(2, 8).toUpperCase();
+            document.getElementById('output').innerHTML = `
+                <p style="color: green;">✅ Room created! Code: ${roomCode}</p>
+                <p>Invite link: ${window.location.href}?room=${roomCode}</p>
+            `;
+        }
+        
+        // Add click listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                cell.addEventListener('click', () => {
+                    makeMove(index);
+                });
+            });
+            
+            console.log('Simple game initialized');
+        });
+    </script>
+</body>
+</html>
