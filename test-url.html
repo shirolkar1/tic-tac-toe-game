@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL State Test - Tic Tac Toe</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            color: #fff; 
+        }
+        .section { 
+            background: #2a2a2a; 
+            padding: 20px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+        }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            margin: 5px; 
+            font-size: 16px; 
+        }
+        button:hover { background: #45a049; }
+        #output { 
+            background: #333; 
+            padding: 15px; 
+            border-radius: 6px; 
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            width: 300px;
+            height: 300px;
+            margin: 20px auto;
+        }
+        .cell {
+            background: #444;
+            border: 2px solid #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .cell:hover {
+            background: #555;
+        }
+        input { 
+            background: #333; 
+            color: #fff; 
+            border: 1px solid #666; 
+            padding: 8px; 
+            border-radius: 4px; 
+            width: 300px; 
+            margin: 5px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 URL State Test - Tic Tac Toe</h1>
+    
+    <div class="section">
+        <h2>📊 Current URL Info</h2>
+        <div id="urlInfo"></div>
+    </div>
+
+    <div class="section">
+        <h2>🏠 Create Room</h2>
+        <button onclick="createTestRoom()">Create Test Room</button>
+        <div id="roomInfo"></div>
+    </div>
+
+    <div class="section">
+        <h2>🔗 Join via URL</h2>
+        <input type="text" id="joinUrl" placeholder="Paste invite URL here">
+        <button onclick="joinViaUrl()">Join Game</button>
+    </div>
+
+    <div class="section">
+        <h2>🎯 Game Board</h2>
+        <div class="board" id="gameBoard"></div>
+        <div id="gameInfo"></div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Debug Output</h2>
+        <button onclick="clearOutput()">Clear</button>
+        <div id="output"></div>
+    </div>
+
+    <script>
+        let gameState = {
+            board: ['', '', '', '', '', '', '', '', ''],
+            currentPlayer: 'X',
+            roomId: null
+        };
+
+        function log(message) {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateDisplay() {
+            // Update URL info
+            const urlParams = new URLSearchParams(window.location.search);
+            document.getElementById('urlInfo').innerHTML = `
+                <strong>Room:</strong> ${urlParams.get('room') || 'None'}<br>
+                <strong>State:</strong> ${urlParams.get('s') ? 'Present' : 'None'}<br>
+                <strong>Full URL:</strong> ${window.location.href}
+            `;
+
+            // Update room info
+            document.getElementById('roomInfo').innerHTML = gameState.roomId 
+                ? `<strong>Room ID:</strong> ${gameState.roomId}` 
+                : 'No room created';
+
+            // Update board
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            gameState.board.forEach((cell, index) => {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'cell';
+                cellDiv.textContent = cell;
+                cellDiv.onclick = () => makeMove(index);
+                board.appendChild(cellDiv);
+            });
+
+            // Update game info
+            document.getElementById('gameInfo').innerHTML = `
+                <strong>Current Player:</strong> ${gameState.currentPlayer}<br>
+                <strong>Room ID:</strong> ${gameState.roomId || 'None'}
+            `;
+        }
+
+        function createTestRoom() {
+            gameState.roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+            gameState.board = ['', '', '', '', '', '', '', '', ''];
+            gameState.currentPlayer = 'X';
+            
+            log(`Created room: ${gameState.roomId}`);
+            
+            // Create invite URL
+            const minimalState = {
+                b: gameState.board,
+                p: gameState.currentPlayer,
+                r: gameState.roomId,
+                t: Date.now()
+            };
+            
+            const stateStr = JSON.stringify(minimalState);
+            const encoded = btoa(stateStr);
+            const baseUrl = window.location.origin + window.location.pathname;
+            const inviteUrl = `${baseUrl}?room=${gameState.roomId}&s=${encoded}`;
+            
+            log(`State size: ${stateStr.length} chars`);
+            log(`Encoded size: ${encoded.length} chars`);
+            log(`Invite URL: ${inviteUrl}`);
+            
+            // Update URL without reload
+            const newUrl = inviteUrl;
+            window.history.pushState({}, '', newUrl);
+            
+            updateDisplay();
+
+            // Show shareable link
+            document.getElementById('roomInfo').innerHTML += `
+                <br><br><strong>Share this link:</strong><br>
+                <input type="text" value="${inviteUrl}" readonly style="width: 100%;" onclick="this.select()">
+                <br><button onclick="copyToClipboard('${inviteUrl}')">Copy Link</button>
+            `;
+        }
+
+        function joinViaUrl() {
+            const url = document.getElementById('joinUrl').value;
+            if (!url) return;
+            
+            log(`Attempting to join via URL: ${url}`);
+            
+            try {
+                const urlObj = new URL(url);
+                const params = new URLSearchParams(urlObj.search);
+                const roomId = params.get('room');
+                const stateData = params.get('s');
+                
+                log(`Room ID from URL: ${roomId}`);
+                log(`State data present: ${!!stateData}`);
+                
+                if (stateData) {
+                    try {
+                        const decoded = atob(stateData);
+                        const state = JSON.parse(decoded);
+                        
+                        log(`Decoded state: ${JSON.stringify(state)}`);
+                        
+                        // Apply the state
+                        gameState.board = state.b || ['', '', '', '', '', '', '', '', ''];
+                        gameState.currentPlayer = state.p || 'X';
+                        gameState.roomId = state.r || roomId;
+                        
+                        log(`Successfully joined room: ${gameState.roomId}`);
+                        
+                        // Update URL
+                        window.history.pushState({}, '', url);
+                        updateDisplay();
+                        
+                    } catch (e) {
+                        log(`Error decoding state: ${e.message}`);
+                    }
+                } else if (roomId) {
+                    log(`Joining room without state: ${roomId}`);
+                    gameState.roomId = roomId;
+                    // Keep current board state
+                    updateDisplay();
+                }
+                
+            } catch (e) {
+                log(`Error parsing URL: ${e.message}`);
+            }
+        }
+
+        function makeMove(index) {
+            if (gameState.board[index] !== '') return;
+            
+            gameState.board[index] = gameState.currentPlayer;
+            gameState.currentPlayer = gameState.currentPlayer === 'X' ? 'O' : 'X';
+            
+            log(`Move made at position ${index}, next player: ${gameState.currentPlayer}`);
+            
+            // Update URL with new state
+            if (gameState.roomId) {
+                const minimalState = {
+                    b: gameState.board,
+                    p: gameState.currentPlayer,
+                    r: gameState.roomId,
+                    t: Date.now()
+                };
+                
+                const stateStr = JSON.stringify(minimalState);
+                const encoded = btoa(stateStr);
+                const baseUrl = window.location.origin + window.location.pathname;
+                const newUrl = `${baseUrl}?room=${gameState.roomId}&s=${encoded}`;
+                
+                window.history.replaceState({}, '', newUrl);
+                log(`Updated URL with new state`);
+            }
+            
+            updateDisplay();
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                log('Link copied to clipboard!');
+            }).catch(err => {
+                log('Failed to copy: ' + err);
+            });
+        }
+
+        function clearOutput() {
+            document.getElementById('output').textContent = '';
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            log('Page loaded');
+            
+            // Check if we have URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room');
+            const stateData = urlParams.get('s');
+            
+            if (roomId) {
+                log(`Found room in URL: ${roomId}`);
+                document.getElementById('joinUrl').value = window.location.href;
+                
+                if (stateData) {
+                    try {
+                        const decoded = atob(stateData);
+                        const state = JSON.parse(decoded);
+                        
+                        gameState.board = state.b || ['', '', '', '', '', '', '', '', ''];
+                        gameState.currentPlayer = state.p || 'X';
+                        gameState.roomId = state.r || roomId;
+                        
+                        log(`Auto-loaded game state from URL`);
+                    } catch (e) {
+                        log(`Error loading state: ${e.message}`);
+                        gameState.roomId = roomId;
+                    }
+                } else {
+                    gameState.roomId = roomId;
+                }
+            }
+            
+            updateDisplay();
+        };
+    </script>
+</body>
+</html>
