@@ -33,13 +33,10 @@ class TicTacToeApp {
     checkForRoomInvite() {
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room');
-        const encodedState = urlParams.get('state');
         
         if (roomCode) {
             console.log('Found room invite in URL:', roomCode);
-            if (encodedState) {
-                console.log('Found game state in URL, auto-joining room');
-            }
+            console.log('Attempting to auto-join room...');
             
             // Auto-join room from invite link
             setTimeout(() => {
