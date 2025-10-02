@@ -33,18 +33,24 @@ class TicTacToeApp {
     checkForRoomInvite() {
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room');
-        const gameData = urlParams.get('data');
+        const gameData = urlParams.get('s');
+        
+        console.log('🔍 CHECKING FOR ROOM INVITE IN URL');
+        console.log('URL:', window.location.href);
+        console.log('Room code:', roomCode);
+        console.log('Game data:', gameData ? 'present' : 'not present');
         
         if (roomCode) {
-            console.log('Found room invite in URL:', roomCode);
-            if (gameData) {
-                console.log('Room invite includes game data for cross-device sync');
-            }
+            console.log('✅ Found room invite in URL:', roomCode);
             
-            // Auto-join room from invite link
-            setTimeout(() => {
-                this.joinMultiplayerRoom(roomCode);
-            }, 1000);
+            // Show immediate feedback to user
+            this.ui.updateStatus('Found room invite! Joining automatically...', '');
+            
+            // Auto-join room from invite link - do it immediately
+            console.log('🚪 Auto-joining room...');
+            this.joinMultiplayerRoom(roomCode);
+        } else {
+            console.log('❌ No room code found in URL');
         }
     }
 
@@ -100,43 +106,98 @@ class TicTacToeApp {
     }
 
     async joinMultiplayerRoom(roomCode) {
-        console.log('=== APP: JOINING MULTIPLAYER ROOM ===');
-        console.log('Room code:', roomCode);
+        console.log('🚪 === APP: JOINING MULTIPLAYER ROOM ===');
+        console.log('🎯 Room code:', roomCode);
+        console.log('🌐 Current URL:', window.location.href);
         
         try {
+            // Show loading state
+            this.ui.updateStatus('Connecting to multiplayer game...', '');
+            
+            console.log('🔥 Creating Firebase multiplayer instance...');
             this.multiplayerGame = new FirebaseMultiplayer();
             
-            // Set up real-time listener
+            // Wait a moment for Firebase to initialize
+            console.log('⏳ Waiting for Firebase initialization...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Set up real-time listener before joining
             this.multiplayerGame.onGameUpdate = (gameState) => {
-                console.log('Game update received in app:', gameState);
+                console.log('📡 Game update received in app:', gameState);
                 this.updateMultiplayerUI(gameState);
             };
             
+            console.log('🎮 Attempting to join room...');
             this.ui.updateStatus('Joining room...', '');
+            
             const success = await this.multiplayerGame.joinRoom(roomCode);
             
-            console.log('Join room result:', success);
+            console.log('✅ Join room result:', success);
             
             if (success) {
+                console.log('🎉 Successfully joined room!');
                 this.isMultiplayerMode = true;
-                const inviteLink = this.multiplayerGame.getInviteLink();
-                this.ui.showRoomInfo(roomCode, 'O', inviteLink);
-                this.ui.updatePlayerStatus('Connected! Game ready.');
                 
-                const gameState = this.multiplayerGame.getGameState();
-                console.log('Current game state after join:', gameState);
+                // Get current game state
+                const gameState = {
+                    board: this.multiplayerGame.board,
+                    currentPlayer: this.multiplayerGame.currentPlayer,
+                    playerSymbol: this.multiplayerGame.playerSymbol,
+                    roomId: this.multiplayerGame.roomId
+                };
+                
+                console.log('📊 Current game state after join:', gameState);
+                
+                // Update UI with room info
+                const inviteLink = this.multiplayerGame.getInviteLink();
+                this.ui.showRoomInfo(roomCode, gameState.playerSymbol, inviteLink);
+                
+                // Update game board
                 this.updateMultiplayerUI(gameState);
-                this.ui.updateStatus('Successfully joined the game!');
+                
+                // Show success message
+                const isMyTurn = gameState.currentPlayer === gameState.playerSymbol;
+                const statusMessage = isMyTurn ? 
+                    `Joined as ${gameState.playerSymbol}! Your turn.` : 
+                    `Joined as ${gameState.playerSymbol}! Waiting for ${gameState.currentPlayer}.`;
+                
+                this.ui.updateStatus(statusMessage, 'success');
+                console.log('🎯 Status:', statusMessage);
+                
             } else {
                 console.log('❌ Failed to join room');
                 this.ui.updateStatus('Room not found! Please check the room code.', 'error');
+                
+                // Try to show debug info
+                console.log('🔍 Debug: Checking URL parameters again...');
+                const urlParams = new URLSearchParams(window.location.search);
+                console.log('🔍 All URL params:', Object.fromEntries(urlParams.entries()));
             }
+            
         } catch (error) {
             console.error('❌ Error joining room in app:', error);
+            console.error('❌ Error details:', error.message);
+            console.error('❌ Error stack:', error.stack);
+            
             this.ui.updateStatus('Error joining room. Please try again.', 'error');
+            
+            // Show fallback options
+            console.log('🔄 Trying fallback join methods...');
+            if (this.multiplayerGame) {
+                try {
+                    const fallbackSuccess = await this.multiplayerGame.joinRoomFallback(roomCode);
+                    if (fallbackSuccess) {
+                        console.log('✅ Fallback join succeeded');
+                        this.isMultiplayerMode = true;
+                        this.ui.updateStatus('Joined using fallback method', 'success');
+                    }
+                } catch (fallbackError) {
+                    console.error('❌ Fallback also failed:', fallbackError);
+                }
+            }
         }
         
-        console.log('=== END APP: JOINING MULTIPLAYER ROOM ===');
+        console.log('🏁 === END APP: JOINING MULTIPLAYER ROOM ===');
     }
 
     handleCellClick(index) {

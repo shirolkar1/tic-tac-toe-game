@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Multiplayer Debug - Tic Tac Toe</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            color: #fff; 
+        }
+        .section { 
+            background: #2a2a2a; 
+            padding: 20px; 
+            margin: 15px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #4CAF50;
+        }
+        .error { border-left-color: #f44336; }
+        .warning { border-left-color: #ff9800; }
+        button { 
+            background: #4CAF50; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            margin: 5px; 
+            font-size: 16px; 
+        }
+        button:hover { background: #45a049; }
+        .danger { background: #f44336; }
+        .danger:hover { background: #d32f2f; }
+        #log { 
+            background: #333; 
+            padding: 15px; 
+            border-radius: 6px; 
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        input { 
+            background: #333; 
+            color: #fff; 
+            border: 1px solid #666; 
+            padding: 12px; 
+            border-radius: 4px; 
+            width: 300px; 
+            margin: 5px; 
+            font-size: 16px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success { background: #4CAF50; }
+        .status.error { background: #f44336; }
+        .status.warning { background: #ff9800; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+    <h1>🔧 Multiplayer Debug Tool</h1>
+    
+    <div class="section">
+        <h2>📋 Current URL Analysis</h2>
+        <div id="urlAnalysis"></div>
+    </div>
+
+    <div class="grid">
+        <div class="section">
+            <h2>🔥 Firebase Connection Test</h2>
+            <button onclick="testFirebase()">Test Firebase Connection</button>
+            <div id="firebaseStatus"></div>
+        </div>
+
+        <div class="section">
+            <h2>🎮 Room Operations</h2>
+            <button onclick="createTestRoom()">Create Test Room</button>
+            <br>
+            <input type="text" id="joinRoomCode" placeholder="Enter room code">
+            <button onclick="joinTestRoom()">Join Room</button>
+            <div id="roomStatus"></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🔗 Link Testing</h2>
+        <input type="text" id="testLink" placeholder="Paste multiplayer link here" style="width: 500px;">
+        <button onclick="testLink()">Test Link</button>
+        <button onclick="simulateClick()">Simulate Click</button>
+    </div>
+
+    <div class="section">
+        <h2>📊 Real-time Log</h2>
+        <button onclick="clearLog()">Clear Log</button>
+        <button class="danger" onclick="location.reload()">Reset Page</button>
+        <div id="log"></div>
+    </div>
+
+    <script type="module">
+        import { FirebaseMultiplayer } from './js/firebase-multiplayer.js';
+        
+        let multiplayer = null;
+        
+        window.log = function(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        window.clearLog = function() {
+            document.getElementById('log').textContent = '';
+        }
+
+        window.analyzeURL = function() {
+            const url = new URL(window.location.href);
+            const params = new URLSearchParams(url.search);
+            
+            const analysis = document.getElementById('urlAnalysis');
+            analysis.innerHTML = `
+                <strong>Full URL:</strong> ${url.href}<br>
+                <strong>Room Code:</strong> ${params.get('room') || 'None'}<br>
+                <strong>State Data:</strong> ${params.get('s') ? 'Present' : 'None'}<br>
+                <strong>All Parameters:</strong> ${Array.from(params.entries()).map(([k,v]) => `${k}=${v}`).join(', ') || 'None'}
+            `;
+        }
+
+        window.testFirebase = async function() {
+            const statusDiv = document.getElementById('firebaseStatus');
+            statusDiv.innerHTML = '<div class="status warning">Testing Firebase connection...</div>';
+            
+            log('🔥 Testing Firebase connection...');
+            
+            try {
+                // Test basic Firebase connectivity
+                const config = {
+                    apiKey: "AIzaSyBgvpk3WLj6D8fZz8vUWRlbJzP3PqV8M8s",
+                    authDomain: "fir-rtdb-demo-default-rtdb.firebaseapp.com",
+                    databaseURL: "https://fir-rtdb-demo-default-rtdb.firebaseio.com",
+                    projectId: "fir-rtdb-demo"
+                };
+                
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
+                
+                const db = firebase.database();
+                const testRef = db.ref('test_connection');
+                
+                log('📡 Writing test data to Firebase...');
+                await testRef.set({
+                    test: true,
+                    timestamp: Date.now()
+                });
+                
+                log('📥 Reading test data from Firebase...');
+                const snapshot = await testRef.once('value');
+                const data = snapshot.val();
+                
+                if (data && data.test) {
+                    log('✅ Firebase connection successful!');
+                    statusDiv.innerHTML = '<div class="status success">✅ Firebase working perfectly!</div>';
+                } else {
+                    log('❌ Firebase read failed');
+                    statusDiv.innerHTML = '<div class="status error">❌ Firebase read failed</div>';
+                }
+                
+                // Clean up test data
+                await testRef.remove();
+                
+            } catch (error) {
+                log('❌ Firebase error: ' + error.message);
+                statusDiv.innerHTML = `<div class="status error">❌ Firebase failed: ${error.message}</div>`;
+            }
+        }
+
+        window.createTestRoom = async function() {
+            const statusDiv = document.getElementById('roomStatus');
+            statusDiv.innerHTML = '<div class="status warning">Creating test room...</div>';
+            
+            log('🏠 Creating test room...');
+            
+            try {
+                multiplayer = new FirebaseMultiplayer();
+                
+                // Wait for initialization
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const roomId = await multiplayer.createRoom();
+                
+                if (roomId) {
+                    log(`✅ Test room created: ${roomId}`);
+                    const inviteLink = multiplayer.getInviteLink();
+                    log(`🔗 Invite link: ${inviteLink}`);
+                    
+                    statusDiv.innerHTML = `
+                        <div class="status success">✅ Room created: ${roomId}</div>
+                        <input type="text" value="${inviteLink}" readonly style="width: 100%;" onclick="this.select()">
+                        <button onclick="navigator.clipboard.writeText('${inviteLink}')">Copy Link</button>
+                    `;
+                } else {
+                    log('❌ Failed to create room');
+                    statusDiv.innerHTML = '<div class="status error">❌ Failed to create room</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Error creating room: ' + error.message);
+                statusDiv.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        window.joinTestRoom = async function() {
+            const roomCode = document.getElementById('joinRoomCode').value.trim();
+            if (!roomCode) {
+                log('❌ Please enter a room code');
+                return;
+            }
+            
+            const statusDiv = document.getElementById('roomStatus');
+            statusDiv.innerHTML = '<div class="status warning">Joining room...</div>';
+            
+            log(`🚪 Joining room: ${roomCode}`);
+            
+            try {
+                if (!multiplayer) {
+                    multiplayer = new FirebaseMultiplayer();
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+                
+                const success = await multiplayer.joinRoom(roomCode);
+                
+                if (success) {
+                    log(`✅ Successfully joined room: ${roomCode}`);
+                    log(`📊 Player symbol: ${multiplayer.playerSymbol}`);
+                    log(`🎯 Current player: ${multiplayer.currentPlayer}`);
+                    log(`📋 Board: ${JSON.stringify(multiplayer.board)}`);
+                    
+                    statusDiv.innerHTML = `
+                        <div class="status success">✅ Joined room: ${roomCode}</div>
+                        <div>You are: ${multiplayer.playerSymbol}</div>
+                        <div>Current turn: ${multiplayer.currentPlayer}</div>
+                    `;
+                } else {
+                    log(`❌ Failed to join room: ${roomCode}`);
+                    statusDiv.innerHTML = '<div class="status error">❌ Failed to join room</div>';
+                }
+                
+            } catch (error) {
+                log('❌ Error joining room: ' + error.message);
+                statusDiv.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        window.testLink = function() {
+            const link = document.getElementById('testLink').value.trim();
+            if (!link) {
+                log('❌ Please enter a link to test');
+                return;
+            }
+            
+            log(`🔗 Testing link: ${link}`);
+            
+            try {
+                const url = new URL(link);
+                const params = new URLSearchParams(url.search);
+                
+                log(`📋 Link analysis:`);
+                log(`  - Room: ${params.get('room') || 'None'}`);
+                log(`  - State: ${params.get('s') ? 'Present' : 'None'}`);
+                log(`  - All params: ${Array.from(params.entries()).map(([k,v]) => `${k}=${v}`).join(', ')}`);
+                
+                if (params.get('s')) {
+                    try {
+                        const decoded = atob(params.get('s'));
+                        const state = JSON.parse(decoded);
+                        log(`📊 Decoded state: ${JSON.stringify(state)}`);
+                    } catch (e) {
+                        log(`❌ Failed to decode state: ${e.message}`);
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Invalid URL: ${error.message}`);
+            }
+        }
+
+        window.simulateClick = function() {
+            const link = document.getElementById('testLink').value.trim();
+            if (!link) {
+                log('❌ Please enter a link first');
+                return;
+            }
+            
+            log(`🖱️ Simulating click on: ${link}`);
+            window.location.href = link;
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            log('🔧 Debug tool initialized');
+            window.analyzeURL();
+            
+            // Check if we're on an invite link
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('room')) {
+                log(`🎯 Detected invite link for room: ${params.get('room')}`);
+                document.getElementById('joinRoomCode').value = params.get('room');
+            }
+        }
+        
+        // Override console.log to capture all logs
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            window.log(args.join(' '));
+        }
+    </script>
+</body>
+</html>

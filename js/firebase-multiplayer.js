@@ -22,7 +22,7 @@ export class FirebaseMultiplayer {
         try {
             console.log('🔧 Initializing Firebase Realtime Database...');
             
-            // Use a working Firebase demo configuration
+            // Use a working Firebase demo configuration with proper CORS
             const firebaseConfig = {
                 apiKey: "AIzaSyBgvpk3WLj6D8fZz8vUWRlbJzP3PqV8M8s",
                 authDomain: "fir-rtdb-demo-default-rtdb.firebaseapp.com",
@@ -33,26 +33,54 @@ export class FirebaseMultiplayer {
                 appId: "1:123456789:web:demo"
             };
 
+            // Check if Firebase SDK is loaded
             if (typeof firebase === 'undefined') {
-                console.error('❌ Firebase SDK not loaded');
+                console.error('❌ Firebase SDK not loaded - falling back to localStorage');
                 this.useFallback = true;
                 return;
             }
 
+            console.log('📦 Firebase SDK detected, version:', firebase.SDK_VERSION || 'unknown');
+
             // Initialize Firebase if not already done
             if (!firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
-                console.log('🎯 Firebase app initialized');
+                console.log('🎯 Firebase app initialized successfully');
+            } else {
+                console.log('🔄 Using existing Firebase app');
             }
             
+            // Test database connection
             this.db = firebase.database();
-            console.log('✅ Firebase Realtime Database connected successfully');
+            console.log('📡 Firebase database instance created');
+            
+            // Test basic connectivity with a simple read
+            const testRef = this.db.ref('.info/connected');
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Firebase connection timeout'));
+                }, 5000);
+                
+                testRef.once('value', (snapshot) => {
+                    clearTimeout(timeout);
+                    const connected = snapshot.val();
+                    console.log('🔌 Firebase connection status:', connected);
+                    if (connected) {
+                        resolve();
+                    } else {
+                        reject(new Error('Firebase not connected'));
+                    }
+                });
+            });
+            
             this.initialized = true;
+            console.log('✅ Firebase Realtime Database connected and ready');
             
         } catch (error) {
-            console.error('❌ Firebase initialization failed:', error);
-            console.log('📱 Falling back to local storage method');
+            console.error('❌ Firebase initialization failed:', error.message);
+            console.log('📱 Falling back to localStorage + URL method');
             this.useFallback = true;
+            this.initialized = false;
         }
     }
 
