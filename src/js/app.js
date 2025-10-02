@@ -44,17 +44,25 @@ class TicTacToeApp {
 
     async createMultiplayerRoom() {
         console.log('createMultiplayerRoom called!');
+        
         try {
+            console.log('Creating FirebaseMultiplayer instance...');
             this.multiplayerGame = new FirebaseMultiplayer();
             console.log('FirebaseMultiplayer created:', this.multiplayerGame);
             
             // Set up real-time listener
             this.multiplayerGame.onGameUpdate = (gameState) => {
+                console.log('Game update received:', gameState);
                 this.updateMultiplayerUI(gameState);
             };
             
+            console.log('Calling createRoom...');
             const roomCode = await this.multiplayerGame.createRoom();
             console.log('Room code generated:', roomCode);
+            
+            if (!roomCode) {
+                throw new Error('Failed to generate room code');
+            }
             
             const inviteLink = this.multiplayerGame.getInviteLink();
             console.log('Invite link generated:', inviteLink);
@@ -64,9 +72,10 @@ class TicTacToeApp {
             this.ui.updatePlayerStatus('Waiting for opponent...');
             
             this.ui.updateStatus('Room created! Share the invite link with a friend.');
+            console.log('Room creation completed successfully');
         } catch (error) {
             console.error('Error creating multiplayer room:', error);
-            this.ui.updateStatus('Error creating room. Please try again.', 'error');
+            this.ui.updateStatus(`Error creating room: ${error.message}`, 'error');
         }
     }
 

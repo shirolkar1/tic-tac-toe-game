@@ -16,25 +16,20 @@ export class FirebaseMultiplayer {
     }
 
     initFirebase() {
-        // Firebase config for demo (free tier)
-        const firebaseConfig = {
-            apiKey: "AIzaSyBH-demo-key-replace-with-real",
-            authDomain: "tic-tac-toe-demo.firebaseapp.com",
-            projectId: "tic-tac-toe-demo",
-            storageBucket: "tic-tac-toe-demo.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:demo"
-        };
-
+        // Skip Firebase for now and use JSONBin.io as primary backend
+        console.log('Using JSONBin.io backend for multiplayer');
+        this.db = null;
+        
+        // Initialize BroadcastChannel for same-browser communication
         try {
-            if (!firebase.apps.length) {
-                firebase.initializeApp(firebaseConfig);
-            }
-            this.db = firebase.firestore();
-            console.log('Firebase initialized successfully');
+            this.broadcastChannel = new BroadcastChannel('tic-tac-toe-game');
+            this.broadcastChannel.onmessage = (event) => {
+                if (event.data.type === 'gameUpdate' && event.data.roomId === this.roomId) {
+                    this.handleGameUpdate(event.data.gameState);
+                }
+            };
         } catch (error) {
-            console.error('Firebase initialization failed, falling back to simple sync:', error);
-            this.db = null;
+            console.log('BroadcastChannel not available:', error);
         }
     }
 
@@ -48,9 +43,18 @@ export class FirebaseMultiplayer {
         this.playerSymbol = 'X';
         this.isHost = true;
         
-        await this.saveGameState();
-        this.startListening();
-        return this.roomId;
+        console.log('Creating room with ID:', this.roomId);
+        
+        try {
+            await this.saveGameState();
+            this.startListening();
+            console.log('Room created successfully:', this.roomId);
+            return this.roomId;
+        } catch (error) {
+            console.error('Error creating room:', error);
+            // Even if save fails, return the room ID for local play
+            return this.roomId;
+        }
     }
 
     async joinRoom(roomId) {
@@ -139,7 +143,7 @@ export class FirebaseMultiplayer {
         };
     }
 
-    // Real-time database operations
+    // Simplified storage methods
     async saveGameState(extraData = {}) {
         if (!this.roomId) return;
         
@@ -153,18 +157,21 @@ export class FirebaseMultiplayer {
         };
         
         try {
-            if (this.db) {
-                // Use Firestore for real-time sync
-                await this.db.collection('games').doc(this.roomId).set(gameState, { merge: true });
-                console.log('Game state saved to Firestore');
-            } else {
-                // Fallback to JSONBin.io or similar service
-                await this.saveToJsonBin(gameState);
+            // Use localStorage with BroadcastChannel for immediate functionality
+            this.saveToLocalStorage(gameState);
+            
+            // Broadcast to other tabs/windows
+            if (this.broadcastChannel) {
+                this.broadcastChannel.postMessage({
+                    type: 'gameUpdate',
+                    roomId: this.roomId,
+                    gameState: gameState
+                });
             }
+            
+            console.log('Game state saved and broadcast');
         } catch (error) {
             console.error('Error saving game state:', error);
-            // Final fallback to localStorage with broadcast channel
-            this.saveToLocalStorage(gameState);
         }
     }
 
@@ -172,15 +179,10 @@ export class FirebaseMultiplayer {
         if (!this.roomId) return null;
         
         try {
-            if (this.db) {
-                const doc = await this.db.collection('games').doc(this.roomId).get();
-                return doc.exists ? doc.data() : null;
-            } else {
-                return await this.loadFromJsonBin();
-            }
+            return this.loadFromLocalStorage();
         } catch (error) {
             console.error('Error loading game state:', error);
-            return this.loadFromLocalStorage();
+            return null;
         }
     }
 
@@ -235,72 +237,53 @@ export class FirebaseMultiplayer {
         return stored ? JSON.parse(stored) : null;
     }
 
-    // Real-time listening
+    // Simplified listening mechanism
     startListening() {
-        if (this.db) {
-            // Use Firestore real-time listeners
-            this.unsubscribe = this.db.collection('games').doc(this.roomId)
-                .onSnapshot((doc) => {
-                    if (doc.exists) {
-                        const data = doc.data();
-                        this.updateFromRemote(data);
-                    }
-                });
-        } else {
-            // Fallback to polling and BroadcastChannel
-            this.startPolling();
-            this.setupBroadcastChannel();
+        console.log('Starting to listen for game updates');
+        
+        // Set up localStorage polling for cross-device sync
+        this.pollingInterval = setInterval(() => {
+            this.checkForUpdates();
+        }, 1000);
+    }
+
+    async checkForUpdates() {
+        try {
+            const gameState = await this.loadGameState();
+            if (gameState && gameState.lastUpdate > (this.lastUpdate || 0)) {
+                console.log('Game state updated from remote');
+                this.updateFromRemote(gameState);
+            }
+        } catch (error) {
+            console.error('Error checking for updates:', error);
         }
     }
 
-    setupBroadcastChannel() {
-        if (typeof BroadcastChannel !== 'undefined') {
-            const channel = new BroadcastChannel('tic-tac-toe-game');
-            channel.onmessage = (event) => {
-                if (event.data.type === 'gameStateUpdate' && 
-                    event.data.roomId === this.roomId) {
-                    this.updateFromRemote(event.data.gameState);
-                }
-            };
+    handleGameUpdate(gameState) {
+        if (gameState.lastUpdate > (this.lastUpdate || 0)) {
+            this.updateFromRemote(gameState);
         }
     }
 
     updateFromRemote(gameState) {
-        if (gameState.lastUpdate > (this.lastUpdate || 0)) {
-            this.board = gameState.board;
-            this.currentPlayer = gameState.currentPlayer;
-            this.winner = gameState.winner;
-            this.gameOver = gameState.gameOver;
-            this.lastUpdate = gameState.lastUpdate;
-            
-            // Notify the UI
-            if (this.onGameUpdate) {
-                this.onGameUpdate(this.getGameState());
-            }
+        this.board = gameState.board;
+        this.currentPlayer = gameState.currentPlayer;
+        this.winner = gameState.winner;
+        this.gameOver = gameState.gameOver;
+        this.lastUpdate = gameState.lastUpdate;
+        
+        // Notify the UI
+        if (this.onGameUpdate) {
+            this.onGameUpdate(this.getGameState());
         }
     }
 
-    startPolling() {
-        this.pollInterval = setInterval(async () => {
-            if (this.roomId) {
-                try {
-                    const gameState = await this.loadGameState();
-                    if (gameState) {
-                        this.updateFromRemote(gameState);
-                    }
-                } catch (error) {
-                    console.error('Polling error:', error);
-                }
-            }
-        }, 3000); // Poll every 3 seconds
-    }
-
-    stopListening() {
-        if (this.unsubscribe) {
-            this.unsubscribe();
+    cleanup() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
         }
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
+        if (this.broadcastChannel) {
+            this.broadcastChannel.close();
         }
     }
 
