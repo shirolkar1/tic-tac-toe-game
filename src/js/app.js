@@ -42,20 +42,31 @@ class TicTacToeApp {
     }
 
     createMultiplayerRoom() {
-        this.multiplayerGame = new MultiplayerGame();
-        const roomCode = this.multiplayerGame.createRoom();
-        const inviteLink = this.multiplayerGame.getInviteLink();
-        
-        this.isMultiplayerMode = true;
-        this.ui.showRoomInfo(roomCode, 'X', inviteLink);
-        this.ui.updatePlayerStatus('Waiting for opponent...');
-        
-        // Start polling for game updates
-        this.multiplayerGame.startPolling((gameState) => {
-            this.updateMultiplayerUI(gameState);
-        });
-        
-        this.ui.updateStatus('Room created! Share the invite link with a friend.');
+        console.log('createMultiplayerRoom called!');
+        try {
+            this.multiplayerGame = new MultiplayerGame();
+            console.log('MultiplayerGame created:', this.multiplayerGame);
+            
+            const roomCode = this.multiplayerGame.createRoom();
+            console.log('Room code generated:', roomCode);
+            
+            const inviteLink = this.multiplayerGame.getInviteLink();
+            console.log('Invite link generated:', inviteLink);
+            
+            this.isMultiplayerMode = true;
+            this.ui.showRoomInfo(roomCode, 'X', inviteLink);
+            this.ui.updatePlayerStatus('Waiting for opponent...');
+            
+            // Start polling for game updates
+            this.multiplayerGame.startPolling((gameState) => {
+                this.updateMultiplayerUI(gameState);
+            });
+            
+            this.ui.updateStatus('Room created! Share the invite link with a friend.');
+        } catch (error) {
+            console.error('Error creating multiplayer room:', error);
+            this.ui.updateStatus('Error creating room. Please try again.', 'error');
+        }
     }
 
     joinMultiplayerRoom(roomCode) {

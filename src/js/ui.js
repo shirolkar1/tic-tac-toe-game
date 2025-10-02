@@ -16,32 +16,51 @@ export class UI {
 
     setupMultiplayerEventListeners() {
         // Create room button
-        document.getElementById('create-room-btn').addEventListener('click', () => {
-            this.onCreateRoom && this.onCreateRoom();
-        });
+        const createRoomBtn = document.getElementById('create-room-btn');
+        if (createRoomBtn) {
+            createRoomBtn.addEventListener('click', () => {
+                console.log('Create room button clicked!');
+                this.onCreateRoom && this.onCreateRoom();
+            });
+        } else {
+            console.error('Create room button not found!');
+        }
 
         // Join room button
-        document.getElementById('join-room-btn').addEventListener('click', () => {
-            this.showJoinRoomInput();
-        });
+        const joinRoomBtn = document.getElementById('join-room-btn');
+        if (joinRoomBtn) {
+            joinRoomBtn.addEventListener('click', () => {
+                console.log('Join room button clicked!');
+                this.showJoinRoomInput();
+            });
+        }
 
         // Join room submit
-        document.getElementById('join-room-submit').addEventListener('click', () => {
-            const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
-            if (roomCode) {
-                this.onJoinRoom && this.onJoinRoom(roomCode);
-            }
-        });
+        const joinRoomSubmit = document.getElementById('join-room-submit');
+        if (joinRoomSubmit) {
+            joinRoomSubmit.addEventListener('click', () => {
+                const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
+                if (roomCode) {
+                    this.onJoinRoom && this.onJoinRoom(roomCode);
+                }
+            });
+        }
 
         // Cancel join
-        document.getElementById('cancel-join').addEventListener('click', () => {
-            this.hideJoinRoomInput();
-        });
+        const cancelJoin = document.getElementById('cancel-join');
+        if (cancelJoin) {
+            cancelJoin.addEventListener('click', () => {
+                this.hideJoinRoomInput();
+            });
+        }
 
         // Copy invite link
-        document.getElementById('copy-link-btn').addEventListener('click', () => {
-            this.copyInviteLink();
-        });
+        const copyLinkBtn = document.getElementById('copy-link-btn');
+        if (copyLinkBtn) {
+            copyLinkBtn.addEventListener('click', () => {
+                this.copyInviteLink();
+            });
+        }
     }
 
     showJoinRoomInput() {
@@ -55,11 +74,21 @@ export class UI {
     }
 
     showRoomInfo(roomCode, playerSymbol, inviteLink) {
-        document.getElementById('room-code').textContent = roomCode;
-        document.getElementById('player-symbol').textContent = playerSymbol;
-        document.getElementById('invite-link').value = inviteLink;
-        document.getElementById('room-info').classList.remove('hidden');
+        console.log('showRoomInfo called with:', { roomCode, playerSymbol, inviteLink });
+        
+        const roomCodeElement = document.getElementById('room-code');
+        const playerSymbolElement = document.getElementById('player-symbol');
+        const inviteLinkElement = document.getElementById('invite-link');
+        const roomInfoElement = document.getElementById('room-info');
+        
+        if (roomCodeElement) roomCodeElement.textContent = roomCode;
+        if (playerSymbolElement) playerSymbolElement.textContent = playerSymbol;
+        if (inviteLinkElement) inviteLinkElement.value = inviteLink;
+        if (roomInfoElement) roomInfoElement.classList.remove('hidden');
+        
         this.hideJoinRoomInput();
+        
+        console.log('Room info should now be visible');
     }
 
     updatePlayerStatus(status) {
