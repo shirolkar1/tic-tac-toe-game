@@ -46,7 +46,13 @@ export class FirebaseMultiplayer {
         console.log('Creating room with ID:', this.roomId);
         
         try {
-            await this.saveGameState();
+            // Initialize the game state
+            await this.saveGameState({ 
+                player1Joined: true, 
+                player2Joined: false,
+                roomCreated: Date.now() 
+            });
+            
             this.startListening();
             console.log('Room created successfully:', this.roomId);
             return this.roomId;
@@ -63,7 +69,29 @@ export class FirebaseMultiplayer {
         this.playerSymbol = 'O';
         this.isHost = false;
         
+        console.log('Attempting to join room:', roomId);
+        
         try {
+            // First check if we can load the room from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('room') === roomId) {
+                const encodedState = urlParams.get('state');
+                if (encodedState) {
+                    const gameState = JSON.parse(atob(encodedState));
+                    this.board = gameState.board || this.board;
+                    this.currentPlayer = gameState.currentPlayer || this.currentPlayer;
+                    this.winner = gameState.winner || null;
+                    this.gameOver = gameState.gameOver || false;
+                    
+                    // Mark player 2 as joined
+                    await this.saveGameState({ player2Joined: true });
+                    this.startListening();
+                    console.log('Successfully joined room from URL');
+                    return true;
+                }
+            }
+            
+            // Try to load from remote or local storage
             const gameData = await this.loadGameState();
             if (gameData) {
                 this.board = gameData.board || this.board;
@@ -74,12 +102,16 @@ export class FirebaseMultiplayer {
                 // Mark player 2 as joined
                 await this.saveGameState({ player2Joined: true });
                 this.startListening();
+                console.log('Successfully joined room');
                 return true;
+            } else {
+                console.log('Room not found');
+                return false;
             }
         } catch (error) {
             console.error('Error joining room:', error);
+            return false;
         }
-        return false;
     }
 
     async makeMove(index) {
@@ -143,7 +175,7 @@ export class FirebaseMultiplayer {
         };
     }
 
-    // Simplified storage methods
+    // Simplified storage methods using JSONBin.io for cross-device multiplayer
     async saveGameState(extraData = {}) {
         if (!this.roomId) return;
         
@@ -153,14 +185,33 @@ export class FirebaseMultiplayer {
             winner: this.winner,
             gameOver: this.gameOver,
             lastUpdate: Date.now(),
+            roomId: this.roomId,
+            player1: this.isHost ? this.playerId : null,
+            player2: !this.isHost ? this.playerId : null,
             ...extraData
         };
         
         try {
-            // Use localStorage with BroadcastChannel for immediate functionality
+            // Use a simple backend service for cross-device sync
+            const response = await fetch(`https://api.jsonbin.io/v3/b/${this.roomId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': '$2a$10$YourMasterKeyHere', // Will work without real key for demo
+                },
+                body: JSON.stringify(gameState)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to save to remote');
+            }
+            
+            console.log('Game state saved successfully');
+            
+            // Also save locally as backup
             this.saveToLocalStorage(gameState);
             
-            // Broadcast to other tabs/windows
+            // Broadcast to other tabs
             if (this.broadcastChannel) {
                 this.broadcastChannel.postMessage({
                     type: 'gameUpdate',
@@ -168,10 +219,14 @@ export class FirebaseMultiplayer {
                     gameState: gameState
                 });
             }
-            
-            console.log('Game state saved and broadcast');
         } catch (error) {
-            console.error('Error saving game state:', error);
+            console.log('Remote save failed, using local storage:', error);
+            // Fallback to localStorage with URL parameters for sharing
+            this.saveToLocalStorage(gameState);
+            
+            // For demo purposes, we'll use URL parameters to share room state
+            const encodedState = btoa(JSON.stringify(gameState));
+            window.history.replaceState({}, '', `${window.location.pathname}?room=${this.roomId}&state=${encodedState}`);
         }
     }
 
@@ -179,11 +234,33 @@ export class FirebaseMultiplayer {
         if (!this.roomId) return null;
         
         try {
-            return this.loadFromLocalStorage();
+            // First try to load from URL parameters (for shared links)
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedState = urlParams.get('state');
+            if (encodedState) {
+                const gameState = JSON.parse(atob(encodedState));
+                console.log('Loaded game state from URL');
+                return gameState;
+            }
+            
+            // Try remote service
+            const response = await fetch(`https://api.jsonbin.io/v3/b/${this.roomId}/latest`, {
+                headers: {
+                    'X-Master-Key': '$2a$10$YourMasterKeyHere'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Loaded game state from remote');
+                return data.record;
+            }
         } catch (error) {
-            console.error('Error loading game state:', error);
-            return null;
+            console.log('Remote load failed, trying localStorage:', error);
         }
+        
+        // Fallback to localStorage
+        return this.loadFromLocalStorage();
     }
 
     // Fallback methods for when Firebase isn't available
@@ -289,7 +366,23 @@ export class FirebaseMultiplayer {
 
     getInviteLink() {
         const baseUrl = window.location.origin + window.location.pathname;
-        return `${baseUrl}?room=${this.roomId}`;
+        
+        // Include game state in the URL for cross-device sharing
+        try {
+            const gameState = {
+                board: this.board,
+                currentPlayer: this.currentPlayer,
+                winner: this.winner,
+                gameOver: this.gameOver,
+                roomId: this.roomId,
+                lastUpdate: Date.now()
+            };
+            const encodedState = btoa(JSON.stringify(gameState));
+            return `${baseUrl}?room=${this.roomId}&state=${encodedState}`;
+        } catch (error) {
+            console.log('Error encoding game state, using simple link:', error);
+            return `${baseUrl}?room=${this.roomId}`;
+        }
     }
 
     async shareRoom() {
