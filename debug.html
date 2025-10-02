@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Tic Tac Toe</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px; margin: 5px; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Tic Tac Toe Debug Page</h1>
+    
+    <div class="debug">
+        <h3>Console Output:</h3>
+        <div id="console-output"></div>
+    </div>
+    
+    <button onclick="testBasicGame()">Test Basic Game</button>
+    <button onclick="testCreateRoom()">Test Create Room</button>
+    <button onclick="testUI()">Test UI Elements</button>
+    
+    <div id="test-results"></div>
+
+    <script type="module">
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const consoleOutput = document.getElementById('console-output');
+        
+        function addToConsole(type, message) {
+            const div = document.createElement('div');
+            div.style.color = type === 'error' ? 'red' : 'black';
+            div.textContent = `[${type}] ${message}`;
+            consoleOutput.appendChild(div);
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToConsole('log', args.join(' '));
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToConsole('error', args.join(' '));
+        };
+
+        // Import and test modules
+        try {
+            const { Game } = await import('./src/js/game.js');
+            const { FirebaseMultiplayer } = await import('./src/js/firebase-multiplayer.js');
+            const { UI } = await import('./src/js/ui.js');
+            
+            console.log('All modules imported successfully');
+            
+            window.testBasicGame = function() {
+                try {
+                    const game = new Game();
+                    console.log('Game created successfully');
+                    
+                    const result = game.makeMove(0);
+                    console.log('Move result:', result);
+                    console.log('Board:', game.getBoard());
+                    
+                    document.getElementById('test-results').innerHTML = '<p style="color: green;">✅ Basic game works!</p>';
+                } catch (error) {
+                    console.error('Basic game test failed:', error);
+                    document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ Basic game failed: ' + error.message + '</p>';
+                }
+            };
+            
+            window.testCreateRoom = function() {
+                try {
+                    const multiplayer = new FirebaseMultiplayer();
+                    console.log('FirebaseMultiplayer created successfully');
+                    
+                    multiplayer.createRoom().then(roomCode => {
+                        console.log('Room created with code:', roomCode);
+                        document.getElementById('test-results').innerHTML = '<p style="color: green;">✅ Create room works! Room code: ' + roomCode + '</p>';
+                    }).catch(error => {
+                        console.error('Create room failed:', error);
+                        document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ Create room failed: ' + error.message + '</p>';
+                    });
+                } catch (error) {
+                    console.error('Multiplayer creation failed:', error);
+                    document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ Multiplayer creation failed: ' + error.message + '</p>';
+                }
+            };
+            
+            window.testUI = function() {
+                try {
+                    // Check if main page elements exist
+                    fetch('./src/index.html')
+                        .then(response => response.text())
+                        .then(html => {
+                            const hasCreateBtn = html.includes('create-room-btn');
+                            const hasJoinBtn = html.includes('join-room-btn');
+                            const hasGameBoard = html.includes('game-board');
+                            
+                            console.log('Create button exists:', hasCreateBtn);
+                            console.log('Join button exists:', hasJoinBtn);
+                            console.log('Game board exists:', hasGameBoard);
+                            
+                            if (hasCreateBtn && hasJoinBtn && hasGameBoard) {
+                                document.getElementById('test-results').innerHTML = '<p style="color: green;">✅ UI elements exist in HTML!</p>';
+                            } else {
+                                document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ Missing UI elements in HTML</p>';
+                            }
+                        });
+                } catch (error) {
+                    console.error('UI test failed:', error);
+                    document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ UI test failed: ' + error.message + '</p>';
+                }
+            };
+            
+        } catch (error) {
+            console.error('Module import failed:', error);
+            document.getElementById('test-results').innerHTML = '<p style="color: red;">❌ Module import failed: ' + error.message + '</p>';
+        }
+    </script>
+</body>
+</html>
