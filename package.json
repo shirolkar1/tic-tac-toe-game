@@ -1,0 +1,41 @@
+{
+  "name": "tic-tac-toe-game",
+  "version": "1.0.0",
+  "description": "A modern, responsive Tic Tac Toe game built with vanilla JavaScript",
+  "main": "src/index.html",
+  "scripts": {
+    "test": "jest",
+    "start": "live-server src --port=3000",
+    "dev": "live-server src --port=3000 --watch=src",
+    "build": "npm run test && npm run copy-files",
+    "copy-files": "mkdir -p dist && cp -r src/* dist/",
+    "serve": "python3 -m http.server 8000 --directory src",
+    "deploy": "npm run build",
+    "preview": "live-server dist --port=4000"
+  },
+  "keywords": [
+    "tic-tac-toe",
+    "game",
+    "javascript",
+    "html5",
+    "css3",
+    "responsive",
+    "web-game",
+    "browser-game"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/tic-tac-toe-game.git"
+  },
+  "homepage": "https://yourusername.github.io/tic-tac-toe-game",
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^27.0.0",
+    "live-server": "^1.2.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

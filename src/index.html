@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Play the classic Tic Tac Toe game online. Fun, responsive, and free to play in your browser.">
+    <meta name="keywords" content="tic tac toe, game, online game, browser game, free game">
+    <meta name="author" content="Your Name">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://your-domain.com/">
+    <meta property="og:title" content="Tic Tac Toe Game - Play Online">
+    <meta property="og:description" content="Play the classic Tic Tac Toe game online. Fun, responsive, and free to play in your browser.">
+    <meta property="og:image" content="https://your-domain.com/preview.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://your-domain.com/">
+    <meta property="twitter:title" content="Tic Tac Toe Game - Play Online">
+    <meta property="twitter:description" content="Play the classic Tic Tac Toe game online. Fun, responsive, and free to play in your browser.">
+    <meta property="twitter:image" content="https://your-domain.com/preview.png">
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Tic Tac Toe">
+    
+    <title>Tic Tac Toe Game - Play Online</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Tic Tac Toe</h1>
+        </header>
+        
+        <main>
+            <div class="game-info">
+                <div id="status" class="status">Player X's turn</div>
+                <div id="score-board" class="score-board">
+                    <div class="score">
+                        <span>Player X: </span>
+                        <span id="score-x">0</span>
+                    </div>
+                    <div class="score">
+                        <span>Player O: </span>
+                        <span id="score-o">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="game-board" class="board">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+            
+            <div class="controls">
+                <button id="reset-btn" class="btn btn-primary">Reset Game</button>
+                <button id="new-game-btn" class="btn btn-secondary">New Game</button>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

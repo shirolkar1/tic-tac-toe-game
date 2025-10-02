@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "name": "tic-tac-toe-game",
+  "builds": [
+    {
+      "src": "src/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/src/$1"
+    },
+    {
+      "src": "/",
+      "dest": "/src/index.html"
+    }
+  ],
+  "functions": {
+    "src/**/*.js": {
+      "runtime": "@vercel/node@18"
+    }
+  }
+}
