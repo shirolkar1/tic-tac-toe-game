@@ -91,62 +91,16 @@ export class FirebaseMultiplayer {
         this.playerSymbol = 'O';
         this.isHost = false;
         
-        console.log('=== DEBUGGING ROOM JOIN ===');
+        console.log('=== JOINING ROOM WITH GITHUB GIST ===');
         console.log('Attempting to join room:', roomId);
-        console.log('Current URL:', window.location.href);
         
         try {
-            // First check if there's game data in the URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const encodedData = urlParams.get('data');
-            
-            console.log('URL parameters found:');
-            console.log('- room:', urlParams.get('room'));
-            console.log('- data:', encodedData ? 'Present (length: ' + encodedData.length + ')' : 'Not found');
-            
-            if (encodedData) {
-                try {
-                    console.log('Attempting to decode URL data...');
-                    const stateStr = decodeURIComponent(escape(atob(encodedData)));
-                    console.log('Decoded string:', stateStr.substring(0, 100) + '...');
-                    
-                    const gameData = JSON.parse(stateStr);
-                    console.log('Parsed game data:', gameData);
-                    
-                    if (gameData.roomId === roomId) {
-                        console.log('✅ Room ID matches! Loading game from URL...');
-                        this.board = gameData.board || this.board;
-                        this.currentPlayer = gameData.currentPlayer || this.currentPlayer;
-                        this.winner = gameData.winner || null;
-                        this.gameOver = gameData.gameOver || false;
-                        
-                        // Save this room data locally for persistence
-                        await this.saveGameState({ 
-                            player2Joined: true,
-                            player2JoinedAt: Date.now(),
-                            loadedFromURL: true
-                        });
-                        
-                        this.startListening();
-                        console.log('✅ Successfully joined room from URL');
-                        return true;
-                    } else {
-                        console.log('❌ Room ID mismatch. Expected:', roomId, 'Got:', gameData.roomId);
-                    }
-                } catch (parseError) {
-                    console.log('❌ Error parsing URL data:', parseError);
-                    console.log('Encoded data that failed:', encodedData.substring(0, 50) + '...');
-                }
-            } else {
-                console.log('No URL data found, checking localStorage...');
-            }
-            
-            // Try to load from localStorage
-            console.log('Checking localStorage for room:', roomId);
+            // Try to load room data from GitHub Gist or localStorage
             const gameData = await this.loadGameState();
             
             if (gameData && gameData.roomId === roomId) {
-                console.log('✅ Found room in localStorage:', gameData);
+                console.log('✅ Found room data:', gameData);
+                
                 this.board = gameData.board || this.board;
                 this.currentPlayer = gameData.currentPlayer || this.currentPlayer;
                 this.winner = gameData.winner || null;
@@ -159,24 +113,23 @@ export class FirebaseMultiplayer {
                 });
                 
                 this.startListening();
-                console.log('✅ Successfully joined room from localStorage');
+                console.log('✅ Successfully joined room');
+                console.log('=== END ROOM JOIN SUCCESS ===');
                 return true;
             } else {
-                console.log('❌ Room not found in localStorage');
+                console.log('❌ Room not found');
                 if (gameData) {
-                    console.log('Found different room data:', gameData.roomId, 'vs expected:', roomId);
+                    console.log('Found different room:', gameData.roomId, 'vs expected:', roomId);
                 } else {
                     console.log('No room data found at all');
                 }
+                console.log('=== END ROOM JOIN FAILURE ===');
+                return false;
             }
-            
-            console.log('❌ Room not found - no data in URL or localStorage');
-            console.log('=== END ROOM JOIN DEBUG ===');
-            return false;
             
         } catch (error) {
             console.error('❌ Error joining room:', error);
-            console.log('=== END ROOM JOIN DEBUG (ERROR) ===');
+            console.log('=== END ROOM JOIN ERROR ===');
             return false;
         }
     }
@@ -242,7 +195,7 @@ export class FirebaseMultiplayer {
         };
     }
 
-    // Working cross-device storage using a free public API
+    // Working cross-device storage using GitHub Gist (public, no auth required)
     async saveGameState(extraData = {}) {
         if (!this.roomId) return;
         
@@ -258,117 +211,126 @@ export class FirebaseMultiplayer {
             ...extraData
         };
         
+        console.log('Saving game state for room:', this.roomId);
+        
         try {
-            // Use a simple REST API that doesn't require authentication
-            const response = await fetch(`https://httpbin.org/put`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    roomId: this.roomId,
-                    gameState: gameState
-                })
-            });
+            // Use GitHub Gist for reliable cross-device storage
+            const gistData = {
+                description: `Tic Tac Toe Room ${this.roomId}`,
+                public: true,
+                files: {
+                    [`ttt-room-${this.roomId}.json`]: {
+                        content: JSON.stringify(gameState, null, 2)
+                    }
+                }
+            };
+            
+            // Try to update existing gist or create new one
+            let response;
+            if (this.gistId) {
+                // Update existing gist
+                response = await fetch(`https://api.github.com/gists/${this.gistId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(gistData)
+                });
+            } else {
+                // Create new gist
+                response = await fetch('https://api.github.com/gists', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(gistData)
+                });
+            }
             
             if (response.ok) {
-                console.log('Game state saved to backend');
+                const result = await response.json();
+                this.gistId = result.id;
+                this.gistUrl = result.html_url;
+                console.log('✅ Game state saved to GitHub Gist:', this.gistId);
                 this.backendSyncWorking = true;
+                
+                // Save gist ID to localStorage for future updates
+                localStorage.setItem(`ttt_gist_${this.roomId}`, this.gistId);
             } else {
-                throw new Error('Backend save failed');
+                throw new Error('GitHub Gist save failed');
             }
             
         } catch (error) {
-            console.log('Backend save failed, using localStorage:', error);
+            console.log('GitHub Gist save failed, using localStorage:', error);
             this.backendSyncWorking = false;
             
-            // Fallback to localStorage with shared storage key
+            // Fallback to enhanced localStorage
             this.saveToLocalStorage(gameState);
-            
-            // Try to save to a simple key-value store
-            try {
-                await this.saveToSimpleBackend(gameState);
-            } catch (backendError) {
-                console.log('Simple backend also failed');
-            }
-            
-            // Broadcast to other tabs in same browser
-            if (this.broadcastChannel) {
-                this.broadcastChannel.postMessage({
-                    type: 'gameUpdate',
-                    roomId: this.roomId,
-                    gameState: gameState
-                });
-            }
-        }
-    }
-
-    async saveToSimpleBackend(gameState) {
-        // Use a simple storage service
-        const key = `ttt_${this.roomId}`;
-        const data = JSON.stringify(gameState);
-        
-        // Try multiple free services
-        const services = [
-            {
-                url: `https://api.paste.ee/v1/pastes`,
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sections: [{ name: key, contents: data }],
-                    expiration: '1day'
-                })
-            }
-        ];
-        
-        for (const service of services) {
-            try {
-                const response = await fetch(service.url, {
-                    method: service.method,
-                    headers: service.headers,
-                    body: service.body
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    this.backendId = result.id || result.link || 'saved';
-                    console.log('Saved to simple backend:', this.backendId);
-                    break;
-                }
-            } catch (error) {
-                console.log('Service failed, trying next...');
-                continue;
-            }
         }
     }
 
     async loadGameState() {
         if (!this.roomId) return null;
         
+        console.log('Loading game state for room:', this.roomId);
+        
         try {
-            // Try localStorage first (fastest)
-            const localData = this.loadFromLocalStorage();
-            if (localData && localData.roomId === this.roomId) {
-                console.log('Loaded from localStorage');
-                return localData;
+            // Try to get gist ID from localStorage first
+            const storedGistId = localStorage.getItem(`ttt_gist_${this.roomId}`);
+            if (storedGistId) {
+                this.gistId = storedGistId;
             }
             
-            // For now, we'll use localStorage with a shared approach
-            // Check if there's a shared game state for this room
-            const sharedKey = `ttt_shared_${this.roomId}`;
-            const sharedData = localStorage.getItem(sharedKey);
-            if (sharedData) {
-                const gameState = JSON.parse(sharedData);
-                console.log('Loaded from shared localStorage');
-                return gameState;
+            // If we have a gist ID, try to load from GitHub
+            if (this.gistId) {
+                console.log('Attempting to load from GitHub Gist:', this.gistId);
+                const response = await fetch(`https://api.github.com/gists/${this.gistId}`);
+                
+                if (response.ok) {
+                    const gist = await response.json();
+                    const fileName = `ttt-room-${this.roomId}.json`;
+                    
+                    if (gist.files && gist.files[fileName]) {
+                        const gameState = JSON.parse(gist.files[fileName].content);
+                        console.log('✅ Loaded game state from GitHub Gist');
+                        this.backendSyncWorking = true;
+                        return gameState;
+                    }
+                }
             }
             
-            console.log('No game state found');
-            return null;
+            // Try to search for public gists with our room ID
+            console.log('Searching for public gists with room ID:', this.roomId);
+            const searchResponse = await fetch(`https://api.github.com/gists/public`);
+            
+            if (searchResponse.ok) {
+                const gists = await searchResponse.json();
+                
+                for (const gist of gists) {
+                    if (gist.description && gist.description.includes(this.roomId)) {
+                        const fileName = `ttt-room-${this.roomId}.json`;
+                        if (gist.files && gist.files[fileName]) {
+                            // Found our room!
+                            this.gistId = gist.id;
+                            localStorage.setItem(`ttt_gist_${this.roomId}`, this.gistId);
+                            
+                            const gameState = JSON.parse(gist.files[fileName].content);
+                            console.log('✅ Found room in public gists');
+                            this.backendSyncWorking = true;
+                            return gameState;
+                        }
+                    }
+                }
+            }
+            
+            throw new Error('Room not found in GitHub Gists');
             
         } catch (error) {
-            console.log('Error loading game state:', error);
-            return null;
+            console.log('GitHub Gist load failed, trying localStorage:', error);
+            this.backendSyncWorking = false;
+            
+            // Fallback to localStorage
+            return this.loadFromLocalStorage();
         }
     }
 
@@ -522,45 +484,20 @@ export class FirebaseMultiplayer {
     getInviteLink() {
         const baseUrl = window.location.origin + window.location.pathname;
         
-        console.log('=== GENERATING INVITE LINK ===');
+        console.log('=== GENERATING SIMPLE INVITE LINK ===');
         console.log('Base URL:', baseUrl);
         console.log('Room ID:', this.roomId);
         
-        // Include complete game state in URL for cross-device sharing
-        try {
-            const gameState = {
-                board: this.board,
-                currentPlayer: this.currentPlayer,
-                winner: this.winner,
-                gameOver: this.gameOver,
-                roomId: this.roomId,
-                lastUpdate: Date.now(),
-                host: this.isHost ? this.playerId : null
-            };
-            
-            console.log('Game state to encode:', gameState);
-            
-            // Encode game state in URL
-            const stateStr = JSON.stringify(gameState);
-            console.log('JSON string length:', stateStr.length);
-            console.log('JSON string preview:', stateStr.substring(0, 100) + '...');
-            
-            const encoded = btoa(unescape(encodeURIComponent(stateStr)));
-            console.log('Encoded length:', encoded.length);
-            console.log('Encoded preview:', encoded.substring(0, 50) + '...');
-            
-            const fullLink = `${baseUrl}?room=${this.roomId}&data=${encoded}`;
-            console.log('Full invite link:', fullLink);
-            console.log('=== END INVITE LINK GENERATION ===');
-            
-            return fullLink;
-        } catch (error) {
-            console.log('❌ Error creating invite link with data:', error);
-            const simpleLink = `${baseUrl}?room=${this.roomId}`;
-            console.log('Fallback to simple link:', simpleLink);
-            console.log('=== END INVITE LINK GENERATION (FALLBACK) ===');
-            return simpleLink;
+        // Simple invite link with just room code - GitHub Gist handles the data
+        const inviteLink = `${baseUrl}?room=${this.roomId}`;
+        console.log('Simple invite link:', inviteLink);
+        
+        if (this.gistUrl) {
+            console.log('GitHub Gist URL:', this.gistUrl);
         }
+        
+        console.log('=== END INVITE LINK GENERATION ===');
+        return inviteLink;
     }
 
     async shareRoom() {
