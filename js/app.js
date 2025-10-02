@@ -17,6 +17,58 @@ class TicTacToeApp {
     initializeGame() {
         this.setupEventListeners();
         this.updateUI();
+        
+        // Expose methods for multiplayer to call
+        window.game = {
+            updateBoard: (board) => {
+                console.log('🎮 window.game.updateBoard called with:', board);
+                this.ui.updateBoard(board);
+            },
+            updateCurrentPlayer: (currentPlayer) => {
+                console.log('🎮 window.game.updateCurrentPlayer called with:', currentPlayer);
+                // Update the current player state
+                if (this.multiplayerGame) {
+                    const isMyTurn = currentPlayer === this.multiplayerGame.playerSymbol;
+                    const statusMessage = isMyTurn ? 
+                        `Your turn! (${this.multiplayerGame.playerSymbol})` : 
+                        `Player ${currentPlayer}'s turn`;
+                    this.ui.updateStatus(statusMessage);
+                    
+                    if (isMyTurn) {
+                        this.ui.enableBoard();
+                    } else {
+                        this.ui.disableBoard();
+                    }
+                }
+            }
+        };
+        
+        // Also listen for custom events
+        window.addEventListener('gameStateUpdate', (event) => {
+            console.log('🎮 Received gameStateUpdate event:', event.detail);
+            this.handleMultiplayerUpdate(event.detail);
+        });
+    }
+
+    handleMultiplayerUpdate(detail) {
+        console.log('🔄 Handling multiplayer update in app');
+        
+        // Update the board
+        this.ui.updateBoard(detail.board);
+        
+        // Update status
+        const isMyTurn = detail.currentPlayer === detail.playerSymbol;
+        const statusMessage = isMyTurn ? 
+            `Your turn! (${detail.playerSymbol})` : 
+            `Player ${detail.currentPlayer}'s turn`;
+        this.ui.updateStatus(statusMessage);
+        
+        // Enable/disable board based on turn
+        if (isMyTurn) {
+            this.ui.enableBoard();
+        } else {
+            this.ui.disableBoard();
+        }
     }
 
     setupEventListeners() {

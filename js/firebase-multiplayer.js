@@ -414,7 +414,10 @@ export class FirebaseMultiplayer {
     }
 
     async makeMove(position) {
-        console.log(`🎯 Making move at position ${position}`);
+        console.log(`🎯 MAKING MOVE AT POSITION ${position}`);
+        console.log(`👤 Player symbol: ${this.playerSymbol}`);
+        console.log(`🎮 Current player: ${this.currentPlayer}`);
+        console.log(`📋 Current board:`, this.board);
         
         try {
             // Validate move
@@ -424,33 +427,46 @@ export class FirebaseMultiplayer {
             }
             
             if (this.currentPlayer !== this.playerSymbol) {
-                console.log('❌ Not your turn');
+                console.log('❌ Not your turn - current player is', this.currentPlayer);
                 return false;
             }
             
-            // Make the move
+            // Make the move locally first for immediate feedback
+            console.log(`✅ Making move: ${this.playerSymbol} at position ${position}`);
             this.board[position] = this.playerSymbol;
             this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
+            this.lastUpdate = Date.now();
             
-            console.log(`✅ Move made: ${this.playerSymbol} at position ${position}`);
             console.log(`🔄 Next player: ${this.currentPlayer}`);
+            console.log(`� Updated board:`, this.board);
             
-            // Save updated state to all backends
+            // Immediately update local UI
+            this.forceUIUpdate();
+            
+            // Create comprehensive game data for sync
             const gameData = {
                 roomId: this.roomId,
                 board: this.board,
                 currentPlayer: this.currentPlayer,
-                lastUpdate: Date.now(),
+                lastUpdate: this.lastUpdate,
+                players: {
+                    X: { id: this.isHost ? 'host' : 'player2' },
+                    O: { id: this.isHost ? 'player2' : 'host' }
+                },
+                status: 'playing',
                 lastMove: {
                     position: position,
                     player: this.playerSymbol,
-                    timestamp: Date.now()
+                    timestamp: this.lastUpdate
                 }
             };
             
+            console.log('💾 Saving move to all backends...');
             await this.saveToAllBackends(gameData);
             
             console.log('✅ Move synchronized to all backends');
+            console.log('🎯 Game continues - waiting for other player');
+            
             return true;
             
         } catch (error) {
@@ -462,37 +478,123 @@ export class FirebaseMultiplayer {
     startPolling() {
         console.log('⏰ Starting polling for game updates...');
         
-        // Poll every 2 seconds for updates
+        // Poll more frequently for better responsiveness
         this.pollingInterval = setInterval(async () => {
             try {
+                console.log('🔍 Polling for updates...');
                 const gameData = await this.loadFromAnyBackend();
+                
                 if (gameData && gameData.lastUpdate > this.lastUpdate) {
-                    console.log('📡 Received game update via polling');
+                    console.log('📡 NEW UPDATE DETECTED!');
+                    console.log('📊 Remote game data:', gameData);
+                    console.log('🕒 Remote timestamp:', gameData.lastUpdate);
+                    console.log('🕒 Local timestamp:', this.lastUpdate);
+                    
                     this.updateFromRemote(gameData);
+                } else {
+                    console.log('📭 No new updates (latest:', this.lastUpdate, ')');
                 }
             } catch (error) {
                 console.log('⚠️ Polling error:', error.message);
             }
-        }, 2000);
+        }, 1000); // Poll every 1 second for faster sync
     }
 
     updateFromRemote(gameData) {
-        console.log('🔄 Updating game state from remote');
+        console.log('🔄 UPDATING GAME STATE FROM REMOTE');
+        console.log('📋 Old board:', this.board);
+        console.log('📋 New board:', gameData.board);
+        console.log('🎯 Old player:', this.currentPlayer);
+        console.log('🎯 New player:', gameData.currentPlayer);
         
+        // Update local state
         this.board = gameData.board;
         this.currentPlayer = gameData.currentPlayer;
         this.lastUpdate = gameData.lastUpdate;
         
-        // Notify UI
-        if (window.game && window.game.updateBoard) {
-            window.game.updateBoard(this.board);
-            window.game.updateCurrentPlayer(this.currentPlayer);
-        }
+        // Force UI update using multiple methods
+        this.forceUIUpdate();
         
-        if (window.ui && window.ui.updateStatus) {
-            const isMyTurn = this.currentPlayer === this.playerSymbol;
-            const status = isMyTurn ? "Your turn!" : `Player ${this.currentPlayer}'s turn`;
-            window.ui.updateStatus(status);
+        console.log('✅ Game state updated successfully');
+    }
+
+    forceUIUpdate() {
+        console.log('🖥️ FORCING UI UPDATE');
+        
+        try {
+            // Method 1: Direct window.game callback
+            if (window.game) {
+                console.log('📱 Updating via window.game');
+                if (window.game.updateBoard) {
+                    window.game.updateBoard(this.board);
+                }
+                if (window.game.updateCurrentPlayer) {
+                    window.game.updateCurrentPlayer(this.currentPlayer);
+                }
+            }
+            
+            // Method 2: Direct window.ui callback
+            if (window.ui) {
+                console.log('📱 Updating via window.ui');
+                if (window.ui.updateBoard) {
+                    window.ui.updateBoard(this.board);
+                }
+                if (window.ui.updateStatus) {
+                    const isMyTurn = this.currentPlayer === this.playerSymbol;
+                    const status = isMyTurn ? 
+                        `Your turn! (${this.playerSymbol})` : 
+                        `Player ${this.currentPlayer}'s turn`;
+                    window.ui.updateStatus(status);
+                }
+            }
+            
+            // Method 3: Direct DOM manipulation as backup
+            console.log('📱 Updating via direct DOM manipulation');
+            this.updateDOMDirectly();
+            
+            // Method 4: Trigger custom events
+            window.dispatchEvent(new CustomEvent('gameStateUpdate', {
+                detail: {
+                    board: this.board,
+                    currentPlayer: this.currentPlayer,
+                    playerSymbol: this.playerSymbol
+                }
+            }));
+            
+            console.log('✅ UI update completed');
+            
+        } catch (error) {
+            console.error('❌ UI update failed:', error);
+        }
+    }
+
+    updateDOMDirectly() {
+        try {
+            // Update board cells directly
+            const cells = document.querySelectorAll('.cell');
+            if (cells.length === 9) {
+                console.log('📱 Updating cells directly');
+                this.board.forEach((symbol, index) => {
+                    if (cells[index]) {
+                        cells[index].textContent = symbol;
+                        cells[index].setAttribute('data-value', symbol);
+                    }
+                });
+            }
+            
+            // Update status directly
+            const statusElement = document.getElementById('status');
+            if (statusElement) {
+                const isMyTurn = this.currentPlayer === this.playerSymbol;
+                const statusText = isMyTurn ? 
+                    `Your turn! (${this.playerSymbol})` : 
+                    `Player ${this.currentPlayer}'s turn`;
+                statusElement.textContent = statusText;
+                console.log('📱 Status updated directly:', statusText);
+            }
+            
+        } catch (error) {
+            console.error('❌ Direct DOM update failed:', error);
         }
     }
 
