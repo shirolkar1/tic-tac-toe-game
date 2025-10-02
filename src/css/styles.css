@@ -185,8 +185,128 @@ header h1 {
     transform: translateY(0);
 }
 
-/* Responsive design */
+/* Multiplayer Controls */
+.multiplayer-controls {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.multiplayer-controls h3 {
+    margin-bottom: 1rem;
+    color: #4a5568;
+    font-size: 1.3rem;
+}
+
+.multiplayer-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.room-info {
+    background: rgba(72, 187, 120, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.room-details {
+    margin-bottom: 1rem;
+}
+
+.room-details p {
+    margin: 0.5rem 0;
+    font-weight: 500;
+}
+
+.invite-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 1rem;
+}
+
+.invite-link-container {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    align-items: center;
+}
+
+.invite-link {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    background: white;
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.btn-small {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    min-width: auto;
+}
+
+.join-room-input {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.join-room-input input {
+    padding: 0.5rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 1rem;
+    text-transform: uppercase;
+    text-align: center;
+    min-width: 120px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.status.error {
+    background: rgba(229, 62, 62, 0.2);
+    color: #c53030;
+}
+
+/* Responsive multiplayer controls */
 @media (max-width: 480px) {
+    .multiplayer-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .invite-link-container {
+        flex-direction: column;
+    }
+    
+    .invite-link {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .join-room-input {
+        flex-direction: column;
+    }
+    
+    .join-room-input input {
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    /* Original responsive design */
     .container {
         padding: 1.5rem;
         width: 95%;
