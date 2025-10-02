@@ -9,49 +9,7 @@ export class UI {
         
         this.scores = { X: 0, O: 0 };
         
-        // Multiplayer UI elements
-        this.multiplayerSection = null;
-        this.createMultiplayerUI();
-    }
-
-    createMultiplayerUI() {
-        // Create multiplayer controls section
-        const multiplayerHTML = `
-            <div id="multiplayer-section" class="multiplayer-controls">
-                <h3>🌐 Online Multiplayer</h3>
-                <div class="multiplayer-buttons">
-                    <button id="create-room-btn" class="btn btn-primary">Create Room</button>
-                    <button id="join-room-btn" class="btn btn-secondary">Join Room</button>
-                </div>
-                
-                <div id="room-info" class="room-info hidden">
-                    <div class="room-details">
-                        <p><strong>Room Code:</strong> <span id="room-code"></span></p>
-                        <p><strong>Your Symbol:</strong> <span id="player-symbol"></span></p>
-                        <p id="player-status">Waiting for opponent...</p>
-                    </div>
-                    <div class="invite-section">
-                        <p>Invite a friend:</p>
-                        <div class="invite-link-container">
-                            <input type="text" id="invite-link" readonly class="invite-link">
-                            <button id="copy-link-btn" class="btn btn-small">Copy Link</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="join-room-input" class="join-room-input hidden">
-                    <input type="text" id="room-code-input" placeholder="Enter room code" maxlength="8">
-                    <button id="join-room-submit" class="btn btn-primary">Join</button>
-                    <button id="cancel-join" class="btn btn-secondary">Cancel</button>
-                </div>
-            </div>
-        `;
-
-        // Insert multiplayer section before the game board
-        const container = document.querySelector('.container main');
-        const gameInfo = document.querySelector('.game-info');
-        gameInfo.insertAdjacentHTML('afterend', multiplayerHTML);
-        
+        // Multiplayer UI elements - now directly in HTML
         this.multiplayerSection = document.getElementById('multiplayer-section');
         this.setupMultiplayerEventListeners();
     }
