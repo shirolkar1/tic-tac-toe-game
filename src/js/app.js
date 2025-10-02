@@ -1,5 +1,5 @@
 import { Game } from './game.js';
-import { MultiplayerGame } from './multiplayer.js';
+import { FirebaseMultiplayer } from './firebase-multiplayer.js';
 import { UI } from './ui.js';
 
 class TicTacToeApp {
@@ -45,8 +45,13 @@ class TicTacToeApp {
     async createMultiplayerRoom() {
         console.log('createMultiplayerRoom called!');
         try {
-            this.multiplayerGame = new MultiplayerGame();
-            console.log('MultiplayerGame created:', this.multiplayerGame);
+            this.multiplayerGame = new FirebaseMultiplayer();
+            console.log('FirebaseMultiplayer created:', this.multiplayerGame);
+            
+            // Set up real-time listener
+            this.multiplayerGame.onGameUpdate = (gameState) => {
+                this.updateMultiplayerUI(gameState);
+            };
             
             const roomCode = await this.multiplayerGame.createRoom();
             console.log('Room code generated:', roomCode);
@@ -57,11 +62,6 @@ class TicTacToeApp {
             this.isMultiplayerMode = true;
             this.ui.showRoomInfo(roomCode, 'X', inviteLink);
             this.ui.updatePlayerStatus('Waiting for opponent...');
-            
-            // Start polling for game updates
-            this.multiplayerGame.startPolling((gameState) => {
-                this.updateMultiplayerUI(gameState);
-            });
             
             this.ui.updateStatus('Room created! Share the invite link with a friend.');
         } catch (error) {
@@ -85,9 +85,14 @@ class TicTacToeApp {
     }
 
     async joinMultiplayerRoom(roomCode) {
-        this.multiplayerGame = new MultiplayerGame();
-        
         try {
+            this.multiplayerGame = new FirebaseMultiplayer();
+            
+            // Set up real-time listener
+            this.multiplayerGame.onGameUpdate = (gameState) => {
+                this.updateMultiplayerUI(gameState);
+            };
+            
             this.ui.updateStatus('Joining room...', '');
             const success = await this.multiplayerGame.joinRoom(roomCode);
             
@@ -96,11 +101,6 @@ class TicTacToeApp {
                 const inviteLink = this.multiplayerGame.getInviteLink();
                 this.ui.showRoomInfo(roomCode, 'O', inviteLink);
                 this.ui.updatePlayerStatus('Connected! Game ready.');
-                
-                // Start polling for game updates
-                this.multiplayerGame.startPolling((gameState) => {
-                    this.updateMultiplayerUI(gameState);
-                });
                 
                 const gameState = this.multiplayerGame.getGameState();
                 this.updateMultiplayerUI(gameState);
@@ -138,7 +138,9 @@ class TicTacToeApp {
         try {
             const result = await this.multiplayerGame.makeMove(index);
             
-            if (result.success) {
+            if (result && result.success) {
+                // The UI will be updated via the real-time listener
+                // but we can also update immediately for better UX
                 this.updateMultiplayerUI(result.gameState);
                 
                 if (result.gameState.winner) {
@@ -147,11 +149,8 @@ class TicTacToeApp {
                     this.handleMultiplayerDraw();
                 }
             } else {
-                this.ui.updateStatus(result.message, 'error');
-                setTimeout(() => {
-                    const gameState = this.multiplayerGame.getGameState();
-                    this.updateMultiplayerUI(gameState);
-                }, 2000);
+                const errorMessage = result ? result.message : 'Error making move';
+                this.ui.updateStatus(errorMessage, 'error');
             }
         } catch (error) {
             console.error('Error making multiplayer move:', error);
@@ -286,9 +285,9 @@ class TicTacToeApp {
     }
 
     newGame() {
-        // Stop multiplayer polling if active
+        // Clean up multiplayer connection if active
         if (this.multiplayerGame) {
-            this.multiplayerGame.stopPolling();
+            this.multiplayerGame.cleanup();
         }
         
         // Reset to single player mode
