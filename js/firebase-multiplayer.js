@@ -91,20 +91,30 @@ export class FirebaseMultiplayer {
         this.playerSymbol = 'O';
         this.isHost = false;
         
+        console.log('=== DEBUGGING ROOM JOIN ===');
         console.log('Attempting to join room:', roomId);
+        console.log('Current URL:', window.location.href);
         
         try {
             // First check if there's game data in the URL
             const urlParams = new URLSearchParams(window.location.search);
             const encodedData = urlParams.get('data');
             
+            console.log('URL parameters found:');
+            console.log('- room:', urlParams.get('room'));
+            console.log('- data:', encodedData ? 'Present (length: ' + encodedData.length + ')' : 'Not found');
+            
             if (encodedData) {
                 try {
+                    console.log('Attempting to decode URL data...');
                     const stateStr = decodeURIComponent(escape(atob(encodedData)));
+                    console.log('Decoded string:', stateStr.substring(0, 100) + '...');
+                    
                     const gameData = JSON.parse(stateStr);
+                    console.log('Parsed game data:', gameData);
                     
                     if (gameData.roomId === roomId) {
-                        console.log('Loading room from URL data');
+                        console.log('✅ Room ID matches! Loading game from URL...');
                         this.board = gameData.board || this.board;
                         this.currentPlayer = gameData.currentPlayer || this.currentPlayer;
                         this.winner = gameData.winner || null;
@@ -118,18 +128,25 @@ export class FirebaseMultiplayer {
                         });
                         
                         this.startListening();
-                        console.log('Successfully joined room from URL');
+                        console.log('✅ Successfully joined room from URL');
                         return true;
+                    } else {
+                        console.log('❌ Room ID mismatch. Expected:', roomId, 'Got:', gameData.roomId);
                     }
                 } catch (parseError) {
-                    console.log('Error parsing URL data:', parseError);
+                    console.log('❌ Error parsing URL data:', parseError);
+                    console.log('Encoded data that failed:', encodedData.substring(0, 50) + '...');
                 }
+            } else {
+                console.log('No URL data found, checking localStorage...');
             }
             
             // Try to load from localStorage
+            console.log('Checking localStorage for room:', roomId);
             const gameData = await this.loadGameState();
+            
             if (gameData && gameData.roomId === roomId) {
-                console.log('Loading room from localStorage');
+                console.log('✅ Found room in localStorage:', gameData);
                 this.board = gameData.board || this.board;
                 this.currentPlayer = gameData.currentPlayer || this.currentPlayer;
                 this.winner = gameData.winner || null;
@@ -142,15 +159,24 @@ export class FirebaseMultiplayer {
                 });
                 
                 this.startListening();
-                console.log('Successfully joined room from localStorage');
+                console.log('✅ Successfully joined room from localStorage');
                 return true;
+            } else {
+                console.log('❌ Room not found in localStorage');
+                if (gameData) {
+                    console.log('Found different room data:', gameData.roomId, 'vs expected:', roomId);
+                } else {
+                    console.log('No room data found at all');
+                }
             }
             
-            console.log('Room not found - no data in URL or localStorage');
+            console.log('❌ Room not found - no data in URL or localStorage');
+            console.log('=== END ROOM JOIN DEBUG ===');
             return false;
             
         } catch (error) {
-            console.error('Error joining room:', error);
+            console.error('❌ Error joining room:', error);
+            console.log('=== END ROOM JOIN DEBUG (ERROR) ===');
             return false;
         }
     }
@@ -496,6 +522,10 @@ export class FirebaseMultiplayer {
     getInviteLink() {
         const baseUrl = window.location.origin + window.location.pathname;
         
+        console.log('=== GENERATING INVITE LINK ===');
+        console.log('Base URL:', baseUrl);
+        console.log('Room ID:', this.roomId);
+        
         // Include complete game state in URL for cross-device sharing
         try {
             const gameState = {
@@ -508,14 +538,28 @@ export class FirebaseMultiplayer {
                 host: this.isHost ? this.playerId : null
             };
             
+            console.log('Game state to encode:', gameState);
+            
             // Encode game state in URL
             const stateStr = JSON.stringify(gameState);
-            const encoded = btoa(unescape(encodeURIComponent(stateStr)));
+            console.log('JSON string length:', stateStr.length);
+            console.log('JSON string preview:', stateStr.substring(0, 100) + '...');
             
-            return `${baseUrl}?room=${this.roomId}&data=${encoded}`;
+            const encoded = btoa(unescape(encodeURIComponent(stateStr)));
+            console.log('Encoded length:', encoded.length);
+            console.log('Encoded preview:', encoded.substring(0, 50) + '...');
+            
+            const fullLink = `${baseUrl}?room=${this.roomId}&data=${encoded}`;
+            console.log('Full invite link:', fullLink);
+            console.log('=== END INVITE LINK GENERATION ===');
+            
+            return fullLink;
         } catch (error) {
-            console.log('Error creating invite link with data:', error);
-            return `${baseUrl}?room=${this.roomId}`;
+            console.log('❌ Error creating invite link with data:', error);
+            const simpleLink = `${baseUrl}?room=${this.roomId}`;
+            console.log('Fallback to simple link:', simpleLink);
+            console.log('=== END INVITE LINK GENERATION (FALLBACK) ===');
+            return simpleLink;
         }
     }
 

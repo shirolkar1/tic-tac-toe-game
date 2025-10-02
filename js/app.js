@@ -100,16 +100,22 @@ class TicTacToeApp {
     }
 
     async joinMultiplayerRoom(roomCode) {
+        console.log('=== APP: JOINING MULTIPLAYER ROOM ===');
+        console.log('Room code:', roomCode);
+        
         try {
             this.multiplayerGame = new FirebaseMultiplayer();
             
             // Set up real-time listener
             this.multiplayerGame.onGameUpdate = (gameState) => {
+                console.log('Game update received in app:', gameState);
                 this.updateMultiplayerUI(gameState);
             };
             
             this.ui.updateStatus('Joining room...', '');
             const success = await this.multiplayerGame.joinRoom(roomCode);
+            
+            console.log('Join room result:', success);
             
             if (success) {
                 this.isMultiplayerMode = true;
@@ -118,15 +124,19 @@ class TicTacToeApp {
                 this.ui.updatePlayerStatus('Connected! Game ready.');
                 
                 const gameState = this.multiplayerGame.getGameState();
+                console.log('Current game state after join:', gameState);
                 this.updateMultiplayerUI(gameState);
                 this.ui.updateStatus('Successfully joined the game!');
             } else {
+                console.log('❌ Failed to join room');
                 this.ui.updateStatus('Room not found! Please check the room code.', 'error');
             }
         } catch (error) {
-            console.error('Error joining room:', error);
+            console.error('❌ Error joining room in app:', error);
             this.ui.updateStatus('Error joining room. Please try again.', 'error');
         }
+        
+        console.log('=== END APP: JOINING MULTIPLAYER ROOM ===');
     }
 
     handleCellClick(index) {
