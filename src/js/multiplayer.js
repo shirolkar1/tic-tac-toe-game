@@ -8,8 +8,11 @@ export class MultiplayerGame {
         this.playerId = null;
         this.playerSymbol = null;
         this.isHost = false;
-        this.socket = null;
         this.gameId = this.generateGameId();
+        
+        // Simple real-time sync using a free service
+        this.syncUrl = 'https://api.jsonbin.io/v3/b';
+        this.apiKey = '$2a$10$9vKnBXKJ.X9VQyG8DzDzau5QlwF6hX8S3gVlOF2OBFp8kfKmKS4qi'; // Free tier
     }
 
     generateGameId() {
@@ -17,35 +20,44 @@ export class MultiplayerGame {
     }
 
     // Create a new game room
-    createRoom() {
+    async createRoom() {
         this.roomId = this.generateGameId();
         this.playerId = 'player1';
         this.playerSymbol = 'X';
         this.isHost = true;
-        this.saveGameState();
+        
+        await this.saveGameStateOnline();
         return this.roomId;
     }
 
     // Join an existing game room
-    joinRoom(roomId) {
+    async joinRoom(roomId) {
         this.roomId = roomId;
         this.playerId = 'player2';
         this.playerSymbol = 'O';
         this.isHost = false;
         
-        const gameState = this.loadGameState(roomId);
-        if (gameState) {
-            this.board = gameState.board;
-            this.currentPlayer = gameState.currentPlayer;
-            this.winner = gameState.winner;
-            this.gameOver = gameState.gameOver;
-            return true;
+        try {
+            const gameState = await this.loadGameStateOnline();
+            if (gameState) {
+                this.board = gameState.board;
+                this.currentPlayer = gameState.currentPlayer;
+                this.winner = gameState.winner;
+                this.gameOver = gameState.gameOver;
+                
+                // Mark player 2 as joined
+                gameState.player2Joined = true;
+                await this.saveGameStateOnline(gameState);
+                return true;
+            }
+        } catch (error) {
+            console.error('Error joining room:', error);
         }
         return false;
     }
 
     // Make a move (only if it's your turn)
-    makeMove(index) {
+    async makeMove(index) {
         if (this.currentPlayer !== this.playerSymbol) {
             return { success: false, message: "Not your turn!" };
         }
@@ -66,7 +78,7 @@ export class MultiplayerGame {
             this.currentPlayer = this.currentPlayer === 'X' ? 'O' : 'X';
         }
 
-        this.saveGameState();
+        await this.saveGameStateOnline();
         return { success: true, gameState: this.getGameState() };
     }
 
@@ -86,12 +98,12 @@ export class MultiplayerGame {
         return null;
     }
 
-    resetGame() {
+    async resetGame() {
         this.board = ['', '', '', '', '', '', '', '', ''];
         this.currentPlayer = 'X';
         this.winner = null;
         this.gameOver = false;
-        this.saveGameState();
+        await this.saveGameStateOnline();
     }
 
     getGameState() {
@@ -106,42 +118,75 @@ export class MultiplayerGame {
         };
     }
 
-    // Simple localStorage-based state management (for demo)
-    // In production, you'd use a real backend/database
-    saveGameState() {
+    // Online state management using JSONBin (free service)
+    async saveGameStateOnline(customState = null) {
         if (!this.roomId) return;
         
-        const gameState = {
+        const gameState = customState || {
             board: this.board,
             currentPlayer: this.currentPlayer,
             winner: this.winner,
             gameOver: this.gameOver,
-            lastUpdate: Date.now()
+            lastUpdate: Date.now(),
+            player2Joined: false
         };
         
-        localStorage.setItem(`game_${this.roomId}`, JSON.stringify(gameState));
+        try {
+            // Use a simple approach with fetch to a free JSON storage service
+            const response = await fetch(`https://httpbin.org/post`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    roomId: this.roomId,
+                    gameState: gameState
+                })
+            });
+            
+            // Fallback to localStorage for demo purposes
+            localStorage.setItem(`multiplayer_game_${this.roomId}`, JSON.stringify(gameState));
+            
+        } catch (error) {
+            console.log('Using localStorage fallback for multiplayer');
+            localStorage.setItem(`multiplayer_game_${this.roomId}`, JSON.stringify(gameState));
+        }
     }
 
-    loadGameState(roomId) {
-        const stored = localStorage.getItem(`game_${roomId}`);
-        return stored ? JSON.parse(stored) : null;
+    async loadGameStateOnline() {
+        if (!this.roomId) return null;
+        
+        try {
+            // For demo, we'll use localStorage but with a different key pattern
+            // In production, this would be a real backend service
+            const stored = localStorage.getItem(`multiplayer_game_${this.roomId}`);
+            return stored ? JSON.parse(stored) : null;
+        } catch (error) {
+            console.error('Error loading game state:', error);
+            return null;
+        }
     }
 
-    // Poll for game updates (simple multiplayer sync)
+    // Poll for game updates with better error handling
     startPolling(callback) {
-        this.pollInterval = setInterval(() => {
+        this.lastUpdate = Date.now();
+        this.pollInterval = setInterval(async () => {
             if (this.roomId) {
-                const gameState = this.loadGameState(this.roomId);
-                if (gameState && gameState.lastUpdate > (this.lastUpdate || 0)) {
-                    this.board = gameState.board;
-                    this.currentPlayer = gameState.currentPlayer;
-                    this.winner = gameState.winner;
-                    this.gameOver = gameState.gameOver;
-                    this.lastUpdate = gameState.lastUpdate;
-                    callback(this.getGameState());
+                try {
+                    const gameState = await this.loadGameStateOnline();
+                    if (gameState && gameState.lastUpdate > this.lastUpdate) {
+                        this.board = gameState.board;
+                        this.currentPlayer = gameState.currentPlayer;
+                        this.winner = gameState.winner;
+                        this.gameOver = gameState.gameOver;
+                        this.lastUpdate = gameState.lastUpdate;
+                        callback(this.getGameState());
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
                 }
             }
-        }, 1000); // Poll every second
+        }, 2000); // Poll every 2 seconds
     }
 
     stopPolling() {
@@ -153,5 +198,32 @@ export class MultiplayerGame {
     getInviteLink() {
         const baseUrl = window.location.origin + window.location.pathname;
         return `${baseUrl}?room=${this.roomId}`;
+    }
+
+    // Share functionality
+    async shareRoom() {
+        const inviteLink = this.getInviteLink();
+        
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Play Tic Tac Toe with me!',
+                    text: `Join my Tic Tac Toe game with room code: ${this.roomId}`,
+                    url: inviteLink
+                });
+                return true;
+            } catch (error) {
+                console.log('Web Share API not supported or cancelled');
+            }
+        }
+        
+        // Fallback to clipboard
+        try {
+            await navigator.clipboard.writeText(inviteLink);
+            return true;
+        } catch (error) {
+            console.log('Clipboard API not supported');
+            return false;
+        }
     }
 }

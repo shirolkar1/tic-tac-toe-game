@@ -61,6 +61,14 @@ export class UI {
                 this.copyInviteLink();
             });
         }
+
+        // Share button
+        const shareBtn = document.getElementById('share-btn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', () => {
+                this.shareRoom && this.shareRoom();
+            });
+        }
     }
 
     showJoinRoomInput() {
@@ -212,4 +220,5 @@ export class UI {
     // Multiplayer event handlers
     onCreateRoom = null;
     onJoinRoom = null;
+    shareRoom = null;
 }

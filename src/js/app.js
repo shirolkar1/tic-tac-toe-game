@@ -27,6 +27,7 @@ class TicTacToeApp {
         // Multiplayer event listeners
         this.ui.onCreateRoom = () => this.createMultiplayerRoom();
         this.ui.onJoinRoom = (roomCode) => this.joinMultiplayerRoom(roomCode);
+        this.ui.shareRoom = () => this.shareMultiplayerRoom();
     }
 
     checkForRoomInvite() {
@@ -41,13 +42,13 @@ class TicTacToeApp {
         }
     }
 
-    createMultiplayerRoom() {
+    async createMultiplayerRoom() {
         console.log('createMultiplayerRoom called!');
         try {
             this.multiplayerGame = new MultiplayerGame();
             console.log('MultiplayerGame created:', this.multiplayerGame);
             
-            const roomCode = this.multiplayerGame.createRoom();
+            const roomCode = await this.multiplayerGame.createRoom();
             console.log('Room code generated:', roomCode);
             
             const inviteLink = this.multiplayerGame.getInviteLink();
@@ -69,25 +70,47 @@ class TicTacToeApp {
         }
     }
 
-    joinMultiplayerRoom(roomCode) {
+    async shareMultiplayerRoom() {
+        if (this.multiplayerGame) {
+            const success = await this.multiplayerGame.shareRoom();
+            if (success) {
+                this.ui.updateStatus('Invite link shared!', 'winner');
+                setTimeout(() => {
+                    this.ui.updateStatus('Waiting for opponent...');
+                }, 2000);
+            } else {
+                this.ui.updateStatus('Could not share. Try copying the link instead.', 'error');
+            }
+        }
+    }
+
+    async joinMultiplayerRoom(roomCode) {
         this.multiplayerGame = new MultiplayerGame();
-        const success = this.multiplayerGame.joinRoom(roomCode);
         
-        if (success) {
-            this.isMultiplayerMode = true;
-            const inviteLink = this.multiplayerGame.getInviteLink();
-            this.ui.showRoomInfo(roomCode, 'O', inviteLink);
-            this.ui.updatePlayerStatus('Connected! Game ready.');
+        try {
+            this.ui.updateStatus('Joining room...', '');
+            const success = await this.multiplayerGame.joinRoom(roomCode);
             
-            // Start polling for game updates
-            this.multiplayerGame.startPolling((gameState) => {
+            if (success) {
+                this.isMultiplayerMode = true;
+                const inviteLink = this.multiplayerGame.getInviteLink();
+                this.ui.showRoomInfo(roomCode, 'O', inviteLink);
+                this.ui.updatePlayerStatus('Connected! Game ready.');
+                
+                // Start polling for game updates
+                this.multiplayerGame.startPolling((gameState) => {
+                    this.updateMultiplayerUI(gameState);
+                });
+                
+                const gameState = this.multiplayerGame.getGameState();
                 this.updateMultiplayerUI(gameState);
-            });
-            
-            const gameState = this.multiplayerGame.getGameState();
-            this.updateMultiplayerUI(gameState);
-        } else {
-            this.ui.updateStatus('Room not found! Please check the room code.', 'error');
+                this.ui.updateStatus('Successfully joined the game!');
+            } else {
+                this.ui.updateStatus('Room not found! Please check the room code.', 'error');
+            }
+        } catch (error) {
+            console.error('Error joining room:', error);
+            this.ui.updateStatus('Error joining room. Please try again.', 'error');
         }
     }
 
@@ -111,23 +134,28 @@ class TicTacToeApp {
         }
     }
 
-    handleMultiplayerMove(index) {
-        const result = this.multiplayerGame.makeMove(index);
-        
-        if (result.success) {
-            this.updateMultiplayerUI(result.gameState);
+    async handleMultiplayerMove(index) {
+        try {
+            const result = await this.multiplayerGame.makeMove(index);
             
-            if (result.gameState.winner) {
-                this.handleMultiplayerGameEnd(result.gameState);
-            } else if (result.gameState.gameOver) {
-                this.handleMultiplayerDraw();
+            if (result.success) {
+                this.updateMultiplayerUI(result.gameState);
+                
+                if (result.gameState.winner) {
+                    this.handleMultiplayerGameEnd(result.gameState);
+                } else if (result.gameState.gameOver) {
+                    this.handleMultiplayerDraw();
+                }
+            } else {
+                this.ui.updateStatus(result.message, 'error');
+                setTimeout(() => {
+                    const gameState = this.multiplayerGame.getGameState();
+                    this.updateMultiplayerUI(gameState);
+                }, 2000);
             }
-        } else {
-            this.ui.updateStatus(result.message, 'error');
-            setTimeout(() => {
-                const gameState = this.multiplayerGame.getGameState();
-                this.updateMultiplayerUI(gameState);
-            }, 2000);
+        } catch (error) {
+            console.error('Error making multiplayer move:', error);
+            this.ui.updateStatus('Error making move. Please try again.', 'error');
         }
     }
 
@@ -244,9 +272,9 @@ class TicTacToeApp {
         }
     }
 
-    resetGame() {
+    async resetGame() {
         if (this.isMultiplayerMode) {
-            this.multiplayerGame.resetGame();
+            await this.multiplayerGame.resetGame();
             const gameState = this.multiplayerGame.getGameState();
             this.updateMultiplayerUI(gameState);
         } else {
