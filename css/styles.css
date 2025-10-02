@@ -1,0 +1,336 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #333;
+}
+
+.container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+}
+
+/* Header */
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    color: #4a5568;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Game Info */
+.game-info {
+    margin-bottom: 2rem;
+}
+
+.status {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    background: rgba(74, 85, 104, 0.1);
+    color: #4a5568;
+    transition: all 0.3s ease;
+}
+
+.status.winner {
+    background: rgba(72, 187, 120, 0.2);
+    color: #2f855a;
+    animation: pulse 1s infinite;
+}
+
+.status.draw {
+    background: rgba(237, 137, 54, 0.2);
+    color: #c05621;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.score-board {
+    display: flex;
+    justify-content: space-around;
+    background: rgba(74, 85, 104, 0.05);
+    padding: 1rem;
+    border-radius: 12px;
+    margin-top: 1rem;
+}
+
+.score {
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 1.1rem;
+}
+
+/* Game Board */
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 8px;
+    margin: 2rem auto;
+    background: #4a5568;
+    padding: 8px;
+    border-radius: 12px;
+    max-width: 300px;
+    aspect-ratio: 1;
+}
+
+.cell {
+    background: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 2.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.cell:hover {
+    background: #f7fafc;
+    transform: scale(0.95);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cell.disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.cell.winning {
+    background: rgba(72, 187, 120, 0.2);
+    animation: winningCell 0.6s ease-in-out;
+}
+
+@keyframes winningCell {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Player symbols styling */
+.cell[data-player="X"] {
+    color: #e53e3e;
+}
+
+.cell[data-player="O"] {
+    color: #3182ce;
+}
+
+/* Controls */
+.controls {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+    background: rgba(74, 85, 104, 0.1);
+    color: #4a5568;
+    border: 2px solid #e2e8f0;
+}
+
+.btn-secondary:hover {
+    background: rgba(74, 85, 104, 0.2);
+    border-color: #cbd5e0;
+    transform: translateY(-2px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Multiplayer Controls */
+.multiplayer-controls {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.multiplayer-controls h3 {
+    margin-bottom: 1rem;
+    color: #4a5568;
+    font-size: 1.3rem;
+}
+
+.multiplayer-buttons {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.room-info {
+    background: rgba(72, 187, 120, 0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    border: 1px solid rgba(72, 187, 120, 0.3);
+}
+
+.room-details {
+    margin-bottom: 1rem;
+}
+
+.room-details p {
+    margin: 0.5rem 0;
+    font-weight: 500;
+}
+
+.invite-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 1rem;
+}
+
+.invite-link-container {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    align-items: center;
+}
+
+.invite-link {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    background: white;
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.btn-small {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    min-width: auto;
+}
+
+.join-room-input {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.join-room-input input {
+    padding: 0.5rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 1rem;
+    text-transform: uppercase;
+    text-align: center;
+    min-width: 120px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.status.error {
+    background: rgba(229, 62, 62, 0.2);
+    color: #c53030;
+}
+
+/* Responsive multiplayer controls */
+@media (max-width: 480px) {
+    .multiplayer-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .invite-link-container {
+        flex-direction: column;
+    }
+    
+    .invite-link {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .join-room-input {
+        flex-direction: column;
+    }
+    
+    .join-room-input input {
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    /* Original responsive design */
+    .container {
+        padding: 1.5rem;
+        width: 95%;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .board {
+        max-width: 250px;
+    }
+    
+    .cell {
+        font-size: 2rem;
+    }
+    
+    .controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}

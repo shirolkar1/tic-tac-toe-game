@@ -1,0 +1,224 @@
+export class UI {
+    constructor() {
+        this.boardElement = document.getElementById('game-board');
+        this.statusElement = document.getElementById('status');
+        this.scoreXElement = document.getElementById('score-x');
+        this.scoreOElement = document.getElementById('score-o');
+        this.resetButton = document.getElementById('reset-btn');
+        this.newGameButton = document.getElementById('new-game-btn');
+        
+        this.scores = { X: 0, O: 0 };
+        
+        // Multiplayer UI elements - now directly in HTML
+        this.multiplayerSection = document.getElementById('multiplayer-section');
+        this.setupMultiplayerEventListeners();
+    }
+
+    setupMultiplayerEventListeners() {
+        // Create room button
+        const createRoomBtn = document.getElementById('create-room-btn');
+        if (createRoomBtn) {
+            createRoomBtn.addEventListener('click', () => {
+                console.log('Create room button clicked!');
+                this.onCreateRoom && this.onCreateRoom();
+            });
+        } else {
+            console.error('Create room button not found!');
+        }
+
+        // Join room button
+        const joinRoomBtn = document.getElementById('join-room-btn');
+        if (joinRoomBtn) {
+            joinRoomBtn.addEventListener('click', () => {
+                console.log('Join room button clicked!');
+                this.showJoinRoomInput();
+            });
+        }
+
+        // Join room submit
+        const joinRoomSubmit = document.getElementById('join-room-submit');
+        if (joinRoomSubmit) {
+            joinRoomSubmit.addEventListener('click', () => {
+                const roomCode = document.getElementById('room-code-input').value.trim().toUpperCase();
+                if (roomCode) {
+                    this.onJoinRoom && this.onJoinRoom(roomCode);
+                }
+            });
+        }
+
+        // Cancel join
+        const cancelJoin = document.getElementById('cancel-join');
+        if (cancelJoin) {
+            cancelJoin.addEventListener('click', () => {
+                this.hideJoinRoomInput();
+            });
+        }
+
+        // Copy invite link
+        const copyLinkBtn = document.getElementById('copy-link-btn');
+        if (copyLinkBtn) {
+            copyLinkBtn.addEventListener('click', () => {
+                this.copyInviteLink();
+            });
+        }
+
+        // Share button
+        const shareBtn = document.getElementById('share-btn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', () => {
+                this.shareRoom && this.shareRoom();
+            });
+        }
+    }
+
+    showJoinRoomInput() {
+        document.getElementById('join-room-input').classList.remove('hidden');
+        document.getElementById('room-code-input').focus();
+    }
+
+    hideJoinRoomInput() {
+        document.getElementById('join-room-input').classList.add('hidden');
+        document.getElementById('room-code-input').value = '';
+    }
+
+    showRoomInfo(roomCode, playerSymbol, inviteLink) {
+        console.log('showRoomInfo called with:', { roomCode, playerSymbol, inviteLink });
+        
+        const roomCodeElement = document.getElementById('room-code');
+        const playerSymbolElement = document.getElementById('player-symbol');
+        const inviteLinkElement = document.getElementById('invite-link');
+        const roomInfoElement = document.getElementById('room-info');
+        
+        if (roomCodeElement) roomCodeElement.textContent = roomCode;
+        if (playerSymbolElement) playerSymbolElement.textContent = playerSymbol;
+        if (inviteLinkElement) inviteLinkElement.value = inviteLink;
+        if (roomInfoElement) roomInfoElement.classList.remove('hidden');
+        
+        this.hideJoinRoomInput();
+        
+        console.log('Room info should now be visible');
+    }
+
+    updatePlayerStatus(status) {
+        document.getElementById('player-status').textContent = status;
+    }
+
+    copyInviteLink() {
+        const inviteLink = document.getElementById('invite-link');
+        inviteLink.select();
+        inviteLink.setSelectionRange(0, 99999); // For mobile devices
+        navigator.clipboard.writeText(inviteLink.value).then(() => {
+            const copyBtn = document.getElementById('copy-link-btn');
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+            }, 2000);
+        });
+    }
+
+    hideMultiplayerControls() {
+        document.getElementById('room-info').classList.add('hidden');
+        this.hideJoinRoomInput();
+    }
+
+    // Existing methods...
+    updateBoard(board) {
+        const cells = this.boardElement.querySelectorAll('.cell');
+        
+        cells.forEach((cell, index) => {
+            const value = board[index];
+            cell.textContent = value;
+            
+            // Add player-specific styling
+            if (value) {
+                cell.setAttribute('data-player', value);
+                cell.classList.add('disabled');
+                // Add entrance animation
+                cell.classList.add('cell-enter');
+                setTimeout(() => cell.classList.remove('cell-enter'), 300);
+            } else {
+                cell.removeAttribute('data-player');
+                cell.classList.remove('disabled');
+            }
+        });
+    }
+
+    updateStatus(message, type = '') {
+        this.statusElement.textContent = message;
+        this.statusElement.className = 'status';
+        
+        if (type) {
+            this.statusElement.classList.add(type);
+        }
+    }
+
+    updateScores() {
+        this.scoreXElement.textContent = this.scores.X;
+        this.scoreOElement.textContent = this.scores.O;
+    }
+
+    incrementScore(player) {
+        this.scores[player]++;
+        this.updateScores();
+    }
+
+    resetScores() {
+        this.scores = { X: 0, O: 0 };
+        this.updateScores();
+    }
+
+    highlightWinningCells(winningPattern) {
+        if (!winningPattern) return;
+        
+        const cells = this.boardElement.querySelectorAll('.cell');
+        winningPattern.forEach(index => {
+            cells[index].classList.add('winning');
+        });
+    }
+
+    clearWinningHighlight() {
+        const cells = this.boardElement.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            cell.classList.remove('winning');
+        });
+    }
+
+    disableBoard() {
+        const cells = this.boardElement.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            cell.classList.add('disabled');
+        });
+    }
+
+    enableBoard() {
+        const cells = this.boardElement.querySelectorAll('.cell');
+        cells.forEach(cell => {
+            if (!cell.textContent) {
+                cell.classList.remove('disabled');
+            }
+        });
+    }
+
+    addCellClickHandler(handler) {
+        this.boardElement.addEventListener('click', (e) => {
+            if (e.target.classList.contains('cell') && !e.target.classList.contains('disabled')) {
+                const index = parseInt(e.target.dataset.index);
+                handler(index);
+            }
+        });
+    }
+
+    addResetHandler(handler) {
+        this.resetButton.addEventListener('click', handler);
+    }
+
+    addNewGameHandler(handler) {
+        this.newGameButton.addEventListener('click', handler);
+    }
+
+    // Multiplayer event handlers
+    onCreateRoom = null;
+    onJoinRoom = null;
+    shareRoom = null;
+}
