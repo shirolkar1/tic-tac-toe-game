@@ -33,10 +33,13 @@ class TicTacToeApp {
     checkForRoomInvite() {
         const urlParams = new URLSearchParams(window.location.search);
         const roomCode = urlParams.get('room');
+        const gameData = urlParams.get('data');
         
         if (roomCode) {
             console.log('Found room invite in URL:', roomCode);
-            console.log('Attempting to auto-join room...');
+            if (gameData) {
+                console.log('Room invite includes game data for cross-device sync');
+            }
             
             // Auto-join room from invite link
             setTimeout(() => {

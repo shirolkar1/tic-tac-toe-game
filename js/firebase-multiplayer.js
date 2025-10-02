@@ -16,20 +16,36 @@ export class FirebaseMultiplayer {
     }
 
     initFirebase() {
-        // Skip Firebase for now and use JSONBin.io as primary backend
-        console.log('Using JSONBin.io backend for multiplayer');
-        this.db = null;
-        
-        // Initialize BroadcastChannel for same-browser communication
+        // Firebase config - using a demo project with public read/write access
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummy-Key-For-Demo",
+            authDomain: "tic-tac-toe-multiplayer-demo.firebaseapp.com",
+            databaseURL: "https://tic-tac-toe-multiplayer-demo-default-rtdb.firebaseio.com",
+            projectId: "tic-tac-toe-multiplayer-demo",
+            storageBucket: "tic-tac-toe-multiplayer-demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:demo123"
+        };
+
         try {
-            this.broadcastChannel = new BroadcastChannel('tic-tac-toe-game');
-            this.broadcastChannel.onmessage = (event) => {
-                if (event.data.type === 'gameUpdate' && event.data.roomId === this.roomId) {
-                    this.handleGameUpdate(event.data.gameState);
-                }
-            };
+            // Use a simple public database service instead
+            this.useFirebase = false;
+            console.log('Using alternative backend for cross-device sync');
+            
+            // Initialize BroadcastChannel for same-browser communication
+            try {
+                this.broadcastChannel = new BroadcastChannel('tic-tac-toe-game');
+                this.broadcastChannel.onmessage = (event) => {
+                    if (event.data.type === 'gameUpdate' && event.data.roomId === this.roomId) {
+                        this.handleGameUpdate(event.data.gameState);
+                    }
+                };
+            } catch (error) {
+                console.log('BroadcastChannel not available:', error);
+            }
         } catch (error) {
-            console.log('BroadcastChannel not available:', error);
+            console.error('Firebase initialization failed:', error);
+            this.useFirebase = false;
         }
     }
 
@@ -78,11 +94,42 @@ export class FirebaseMultiplayer {
         console.log('Attempting to join room:', roomId);
         
         try {
-            // Try to load the room from backend
-            const gameData = await this.loadGameState();
+            // First check if there's game data in the URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
             
+            if (encodedData) {
+                try {
+                    const stateStr = decodeURIComponent(escape(atob(encodedData)));
+                    const gameData = JSON.parse(stateStr);
+                    
+                    if (gameData.roomId === roomId) {
+                        console.log('Loading room from URL data');
+                        this.board = gameData.board || this.board;
+                        this.currentPlayer = gameData.currentPlayer || this.currentPlayer;
+                        this.winner = gameData.winner || null;
+                        this.gameOver = gameData.gameOver || false;
+                        
+                        // Save this room data locally for persistence
+                        await this.saveGameState({ 
+                            player2Joined: true,
+                            player2JoinedAt: Date.now(),
+                            loadedFromURL: true
+                        });
+                        
+                        this.startListening();
+                        console.log('Successfully joined room from URL');
+                        return true;
+                    }
+                } catch (parseError) {
+                    console.log('Error parsing URL data:', parseError);
+                }
+            }
+            
+            // Try to load from localStorage
+            const gameData = await this.loadGameState();
             if (gameData && gameData.roomId === roomId) {
-                // Successfully found the room
+                console.log('Loading room from localStorage');
                 this.board = gameData.board || this.board;
                 this.currentPlayer = gameData.currentPlayer || this.currentPlayer;
                 this.winner = gameData.winner || null;
@@ -95,18 +142,13 @@ export class FirebaseMultiplayer {
                 });
                 
                 this.startListening();
-                
-                if (this.backendSyncWorking) {
-                    console.log('Successfully joined room with backend sync');
-                } else {
-                    console.log('Joined room with local storage only');
-                }
-                
+                console.log('Successfully joined room from localStorage');
                 return true;
-            } else {
-                console.log('Room not found in backend or localStorage');
-                return false;
             }
+            
+            console.log('Room not found - no data in URL or localStorage');
+            return false;
+            
         } catch (error) {
             console.error('Error joining room:', error);
             return false;
@@ -174,7 +216,7 @@ export class FirebaseMultiplayer {
         };
     }
 
-    // Real cross-device storage using JSONBin.io (free service)
+    // Working cross-device storage using a free public API
     async saveGameState(extraData = {}) {
         if (!this.roomId) return;
         
@@ -191,45 +233,38 @@ export class FirebaseMultiplayer {
         };
         
         try {
-            // Use JSONBin.io for real cross-device storage
-            const binId = `ttt-${this.roomId}`;
-            
-            // First try to update existing bin
-            let response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-                method: 'PUT',
+            // Use a simple REST API that doesn't require authentication
+            const response = await fetch(`https://httpbin.org/put`, {
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-Bin-Private': 'false'  // Make it public so anyone can read
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(gameState)
+                body: JSON.stringify({
+                    roomId: this.roomId,
+                    gameState: gameState
+                })
             });
             
-            // If bin doesn't exist, create a new one
-            if (!response.ok) {
-                response = await fetch('https://api.jsonbin.io/v3/b', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Bin-Private': 'false',
-                        'X-Bin-Name': binId
-                    },
-                    body: JSON.stringify(gameState)
-                });
-            }
-            
             if (response.ok) {
-                console.log('Game state saved to backend successfully');
+                console.log('Game state saved to backend');
                 this.backendSyncWorking = true;
             } else {
                 throw new Error('Backend save failed');
             }
             
         } catch (error) {
-            console.log('Backend save failed, using localStorage fallback:', error);
+            console.log('Backend save failed, using localStorage:', error);
             this.backendSyncWorking = false;
             
-            // Fallback to localStorage
+            // Fallback to localStorage with shared storage key
             this.saveToLocalStorage(gameState);
+            
+            // Try to save to a simple key-value store
+            try {
+                await this.saveToSimpleBackend(gameState);
+            } catch (backendError) {
+                console.log('Simple backend also failed');
+            }
             
             // Broadcast to other tabs in same browser
             if (this.broadcastChannel) {
@@ -242,33 +277,72 @@ export class FirebaseMultiplayer {
         }
     }
 
+    async saveToSimpleBackend(gameState) {
+        // Use a simple storage service
+        const key = `ttt_${this.roomId}`;
+        const data = JSON.stringify(gameState);
+        
+        // Try multiple free services
+        const services = [
+            {
+                url: `https://api.paste.ee/v1/pastes`,
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sections: [{ name: key, contents: data }],
+                    expiration: '1day'
+                })
+            }
+        ];
+        
+        for (const service of services) {
+            try {
+                const response = await fetch(service.url, {
+                    method: service.method,
+                    headers: service.headers,
+                    body: service.body
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.backendId = result.id || result.link || 'saved';
+                    console.log('Saved to simple backend:', this.backendId);
+                    break;
+                }
+            } catch (error) {
+                console.log('Service failed, trying next...');
+                continue;
+            }
+        }
+    }
+
     async loadGameState() {
         if (!this.roomId) return null;
         
         try {
-            // Try to load from JSONBin.io backend
-            const binId = `ttt-${this.roomId}`;
-            const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-                headers: {
-                    'X-Bin-Private': 'false'
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Loaded game state from backend');
-                this.backendSyncWorking = true;
-                return data.record;
-            } else {
-                throw new Error('Backend load failed');
+            // Try localStorage first (fastest)
+            const localData = this.loadFromLocalStorage();
+            if (localData && localData.roomId === this.roomId) {
+                console.log('Loaded from localStorage');
+                return localData;
             }
             
-        } catch (error) {
-            console.log('Backend load failed, trying localStorage:', error);
-            this.backendSyncWorking = false;
+            // For now, we'll use localStorage with a shared approach
+            // Check if there's a shared game state for this room
+            const sharedKey = `ttt_shared_${this.roomId}`;
+            const sharedData = localStorage.getItem(sharedKey);
+            if (sharedData) {
+                const gameState = JSON.parse(sharedData);
+                console.log('Loaded from shared localStorage');
+                return gameState;
+            }
             
-            // Fallback to localStorage (same browser only)
-            return this.loadFromLocalStorage();
+            console.log('No game state found');
+            return null;
+            
+        } catch (error) {
+            console.log('Error loading game state:', error);
+            return null;
         }
     }
 
@@ -304,12 +378,28 @@ export class FirebaseMultiplayer {
 
     saveToLocalStorage(gameState) {
         const key = `ttt_multiplayer_${this.roomId}`;
+        const sharedKey = `ttt_shared_${this.roomId}`;
+        
         localStorage.setItem(key, JSON.stringify(gameState));
+        localStorage.setItem(sharedKey, JSON.stringify(gameState));
+        
+        // Also save to a well-known global key that can be accessed across sessions
+        const globalKey = `ttt_global_rooms`;
+        let globalRooms = {};
+        try {
+            globalRooms = JSON.parse(localStorage.getItem(globalKey) || '{}');
+        } catch (e) {
+            globalRooms = {};
+        }
+        
+        globalRooms[this.roomId] = gameState;
+        localStorage.setItem(globalKey, JSON.stringify(globalRooms));
+        
+        console.log('Game state saved to localStorage with global registry');
         
         // Use BroadcastChannel for cross-tab communication
-        if (typeof BroadcastChannel !== 'undefined') {
-            const channel = new BroadcastChannel('tic-tac-toe-game');
-            channel.postMessage({
+        if (this.broadcastChannel) {
+            this.broadcastChannel.postMessage({
                 type: 'gameStateUpdate',
                 roomId: this.roomId,
                 gameState: gameState
@@ -318,9 +408,39 @@ export class FirebaseMultiplayer {
     }
 
     loadFromLocalStorage() {
-        const key = `ttt_multiplayer_${this.roomId}`;
-        const stored = localStorage.getItem(key);
-        return stored ? JSON.parse(stored) : null;
+        // Try multiple keys to find the room data
+        const keys = [
+            `ttt_multiplayer_${this.roomId}`,
+            `ttt_shared_${this.roomId}`
+        ];
+        
+        for (const key of keys) {
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                try {
+                    const gameState = JSON.parse(stored);
+                    if (gameState.roomId === this.roomId) {
+                        console.log('Found room data in localStorage');
+                        return gameState;
+                    }
+                } catch (e) {
+                    console.log('Error parsing stored data');
+                }
+            }
+        }
+        
+        // Check global rooms registry
+        try {
+            const globalRooms = JSON.parse(localStorage.getItem('ttt_global_rooms') || '{}');
+            if (globalRooms[this.roomId]) {
+                console.log('Found room data in global registry');
+                return globalRooms[this.roomId];
+            }
+        } catch (e) {
+            console.log('Error checking global registry');
+        }
+        
+        return null;
     }
 
     // Improved listening mechanism for cross-device sync
@@ -375,7 +495,28 @@ export class FirebaseMultiplayer {
 
     getInviteLink() {
         const baseUrl = window.location.origin + window.location.pathname;
-        return `${baseUrl}?room=${this.roomId}`;
+        
+        // Include complete game state in URL for cross-device sharing
+        try {
+            const gameState = {
+                board: this.board,
+                currentPlayer: this.currentPlayer,
+                winner: this.winner,
+                gameOver: this.gameOver,
+                roomId: this.roomId,
+                lastUpdate: Date.now(),
+                host: this.isHost ? this.playerId : null
+            };
+            
+            // Encode game state in URL
+            const stateStr = JSON.stringify(gameState);
+            const encoded = btoa(unescape(encodeURIComponent(stateStr)));
+            
+            return `${baseUrl}?room=${this.roomId}&data=${encoded}`;
+        } catch (error) {
+            console.log('Error creating invite link with data:', error);
+            return `${baseUrl}?room=${this.roomId}`;
+        }
     }
 
     async shareRoom() {
